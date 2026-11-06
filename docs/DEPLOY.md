@@ -38,4 +38,4 @@ Xóa seed.env và seed.compose.yml sau khi seed; service đang chạy không b�
 - MeshCentral backup gồm toàn bộ meshcentral-data (DB/khóa/chứng chỉ) và meshcentral-files. Không chỉ backup config.
 - `docker compose logs --tail=100 app`; không log secret. Health route chỉ kiểm tra process, không chứng minh agent đang online.
 - App domain phục vụ cả FE/API/socket. Không cần NEXT_PUBLIC_* hoặc FE URL hard-code.
-- CI/CD build/push/pull/rollback nằm prompt 007; cấu hình này chưa có workflow tự deploy.
+- CI/CD GitHub Actions, GHCR, secrets và rollback: xem [CICD_DEPLOY.md](CICD_DEPLOY.md).

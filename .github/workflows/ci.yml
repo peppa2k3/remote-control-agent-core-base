@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Validate production Compose config
+        run: |
+          set -Eeuo pipefail
+          backend_env="$(mktemp)"
+          trap 'rm -f "$backend_env"' EXIT
+          cp infrastructure/backend.env.example "$backend_env"
+          BACKEND_ENV_FILE="$backend_env" APP_IMAGE="ghcr.io/example/remote-control-agent:$GITHUB_SHA" \
+            docker compose --project-directory infrastructure --env-file infrastructure/.env.example \
+              -f infrastructure/compose.prod.yml config --quiet
+      - name: Build production Docker image
+        run: docker build --pull --file Dockerfile --tag "remote-control-agent-ci:$GITHUB_SHA" .
+      - name: Check deploy script and rollback flow
+        run: |
+          bash -n scripts/deploy.sh
+          bash -n scripts/test-deploy.sh
+          bash scripts/test-deploy.sh

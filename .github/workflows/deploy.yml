@@ -1,0 +1,182 @@
+name: Production deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rca-production
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  publish-image:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and publish immutable image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          repository="${GITHUB_REPOSITORY,,}"
+          image="ghcr.io/$repository:$GITHUB_SHA"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          if docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "Reusing the already-published image for $GITHUB_SHA"
+            docker pull "$image"
+          else
+            docker build --pull --file Dockerfile --tag "$image" .
+            docker push "$image"
+          fi
+
+  deploy:
+    needs: [validate, publish-image]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure pinned SSH identity
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$DEPLOY_KEY" && -n "$KNOWN_HOSTS" ]] || { echo 'SSH key and known_hosts secrets are required'; exit 1; }
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Transfer release and apply on VPS
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          VPS_PORT: ${{ vars.VPS_PORT }}
+          DEPLOY_ROOT: ${{ vars.VPS_DEPLOY_ROOT }}
+          GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root="${DEPLOY_ROOT:-/opt/remote-control-agent}"
+          port="${VPS_PORT:-22}"
+          [[ "$root" =~ ^/[A-Za-z0-9/._-]+$ && "$root" != / && "$root" != *"/../"* && "$root" != */.. ]] || { echo 'Invalid VPS_DEPLOY_ROOT'; exit 1; }
+          [[ "$VPS_HOST" =~ ^[A-Za-z0-9.-]+$ && "$VPS_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo 'Set valid VPS_HOST and VPS_USER repository variables'; exit 1; }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || { echo 'Invalid VPS_PORT'; exit 1; }
+          [[ "$GHCR_USERNAME" =~ ^[A-Za-z0-9-]+$ && -n "$GHCR_READ_TOKEN" ]] || { echo 'Set GHCR_USERNAME and GHCR_READ_TOKEN'; exit 1; }
+
+          remote="$VPS_USER@$VPS_HOST"
+          release="$root/releases/$GITHUB_SHA"
+          ssh_options=(-i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          cleanup_registry_login() {
+            ssh "${ssh_options[@]}" -p "$port" "$remote" 'docker logout ghcr.io' >/dev/null 2>&1 || true
+          }
+
+          tar -czf "$RUNNER_TEMP/release.tar.gz" infrastructure/compose.prod.yml scripts/deploy.sh
+          ssh "${ssh_options[@]}" -p "$port" "$remote" "mkdir -p '$release'"
+          scp "${ssh_options[@]}" -P "$port" "$RUNNER_TEMP/release.tar.gz" "$remote:$release/release.tar.gz"
+          ssh "${ssh_options[@]}" -p "$port" "$remote" "tar -xzf '$release/release.tar.gz' -C '$release' --strip-components=1 && rm -f '$release/release.tar.gz'"
+
+          trap cleanup_registry_login EXIT
+          printf '%s' "$GHCR_READ_TOKEN" | ssh "${ssh_options[@]}" -p "$port" "$remote" "docker login ghcr.io --username '$GHCR_USERNAME' --password-stdin"
+          ssh "${ssh_options[@]}" -p "$port" "$remote" \
+            "bash '$release/scripts/deploy.sh' apply '$root' '$GITHUB_SHA' 'ghcr.io/${GITHUB_REPOSITORY,,}:$GITHUB_SHA'"
+
+  verify:
+    needs: [publish-image, deploy]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure pinned SSH identity
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$DEPLOY_KEY" && -n "$KNOWN_HOSTS" ]] || exit 1
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Verify HTTPS and promote release
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          VPS_PORT: ${{ vars.VPS_PORT }}
+          DEPLOY_ROOT: ${{ vars.VPS_DEPLOY_ROOT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root="${DEPLOY_ROOT:-/opt/remote-control-agent}"
+          port="${VPS_PORT:-22}"
+          [[ "$root" =~ ^/[A-Za-z0-9/._-]+$ && "$root" != / && "$root" != *"/../"* && "$root" != */.. ]] || exit 1
+          [[ "$VPS_HOST" =~ ^[A-Za-z0-9.-]+$ && "$VPS_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || exit 1
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || exit 1
+          release="$root/releases/$GITHUB_SHA"
+          ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -p "$port" "$VPS_USER@$VPS_HOST" \
+            "bash '$release/deploy.sh' verify '$root' '$GITHUB_SHA'"
+
+  rollback:
+    needs: [deploy, verify]
+    if: ${{ always() && github.ref == 'refs/heads/main' && (needs.deploy.result == 'failure' || needs.verify.result == 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure pinned SSH identity
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$DEPLOY_KEY" && -n "$KNOWN_HOSTS" ]] || exit 1
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Restore the previous image when a release is pending
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          VPS_PORT: ${{ vars.VPS_PORT }}
+          DEPLOY_ROOT: ${{ vars.VPS_DEPLOY_ROOT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root="${DEPLOY_ROOT:-/opt/remote-control-agent}"
+          port="${VPS_PORT:-22}"
+          [[ "$root" =~ ^/[A-Za-z0-9/._-]+$ && "$root" != / && "$root" != *"/../"* && "$root" != */.. ]] || exit 1
+          [[ "$VPS_HOST" =~ ^[A-Za-z0-9.-]+$ && "$VPS_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || exit 1
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || exit 1
+          ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -p "$port" "$VPS_USER@$VPS_HOST" \
+            "bash -s -- rollback '$root' '$GITHUB_SHA'" < scripts/deploy.sh

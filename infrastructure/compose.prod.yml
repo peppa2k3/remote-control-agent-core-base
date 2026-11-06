@@ -1,0 +1,32 @@
+services:
+  app:
+    image: ${APP_IMAGE:?Set APP_IMAGE to an immutable GHCR image}
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ${BACKEND_ENV_FILE:?Set the absolute path to backend.env}
+    volumes:
+      - app-data:/data
+    networks:
+      - edge
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.rca.rule=Host(`${APP_DOMAIN}`)
+      - traefik.http.routers.rca.entrypoints=websecure
+      - traefik.http.routers.rca.tls.certresolver=${TRAEFIK_CERTRESOLVER}
+      - traefik.http.services.rca.loadbalancer.server.port=4000
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+
+volumes:
+  app-data:
+
+networks:
+  edge:
+    external: true
+    name: ${TRAEFIK_NETWORK}
