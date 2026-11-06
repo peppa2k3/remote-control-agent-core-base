@@ -96,6 +96,8 @@ jobs:
           ssh "${ssh_options[@]}" -p "$port" "$remote" "mkdir -p '$release'"
           scp "${ssh_options[@]}" -P "$port" "$RUNNER_TEMP/release.tar.gz" "$remote:$release/release.tar.gz"
           ssh "${ssh_options[@]}" -p "$port" "$remote" "tar -xzf '$release/release.tar.gz' -C '$release' && rm -f '$release/release.tar.gz'"
+          ssh "${ssh_options[@]}" -p "$port" "$remote" \
+            "test -f '$release/infrastructure/compose.prod.yml' && test -f '$release/scripts/deploy.sh'"
 
           trap cleanup_registry_login EXIT
           printf '%s' "$GHCR_READ_TOKEN" | ssh "${ssh_options[@]}" -p "$port" "$remote" "docker login ghcr.io --username '$GHCR_USERNAME' --password-stdin"
@@ -104,7 +106,7 @@ jobs:
 
   verify:
     needs: [publish-image, deploy]
-    if: github.ref == 'refs/heads/main'
+    if: ${{ success() && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

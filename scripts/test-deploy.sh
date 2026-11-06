@@ -83,6 +83,16 @@ prepare_release() {
 prepare_release "$sha_a"
 prepare_release "$sha_b"
 
+sha_missing="$(printf 'd%.0s' {1..40})"
+image_missing="ghcr.io/example/remote-control-agent:$sha_missing"
+mkdir -p "$scratch/root/releases/$sha_missing/infrastructure"
+if output="$(bash "$repo/scripts/deploy.sh" apply "$scratch/root" "$sha_missing" "$image_missing" 2>&1)"; then
+  echo 'Apply accepted a release with no Compose file' >&2
+  exit 1
+fi
+[[ "$output" == *"Release Compose file is missing: $scratch/root/releases/$sha_missing/infrastructure/compose.prod.yml"* ]]
+[[ ! -e "$scratch/root/shared/pending-release.env" ]]
+
 bash "$repo/scripts/deploy.sh" apply "$scratch/root" "$sha_a" "$image_a"
 bash "$repo/scripts/deploy.sh" verify "$scratch/root" "$sha_a"
 [[ "$(sed -n 's/^RELEASE_SHA=//p' "$scratch/root/shared/current-release.env")" == "$sha_a" ]]
@@ -110,4 +120,4 @@ if grep -q "pull $image_c" "$MOCK_LOG"; then
   echo 'Image was pulled despite a Traefik router conflict' >&2
   exit 1
 fi
-echo 'Deploy flow: immutable release, HTTPS promotion, and rollback passed'
+echo 'Deploy flow: Compose layout guard, immutable release, HTTPS promotion, and rollback passed'

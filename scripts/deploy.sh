@@ -181,7 +181,7 @@ rollback_on_error() {
 }
 
 apply_release() {
-  [[ -f "$compose_file" ]] || { echo 'Release Compose file is missing'; return 1; }
+  [[ -f "$compose_file" ]] || { echo "Release Compose file is missing: $compose_file"; return 1; }
   [[ ! -e "$pending" ]] || { echo 'Resolve the pending release before starting another'; return 1; }
   valid_image "$image" && [[ "${image##*:}" == "$sha" ]] || { echo 'Expected an immutable GHCR image tagged with this commit SHA'; return 1; }
   check_environment
