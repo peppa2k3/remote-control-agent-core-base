@@ -95,7 +95,7 @@ jobs:
           tar -czf "$RUNNER_TEMP/release.tar.gz" infrastructure/compose.prod.yml scripts/deploy.sh
           ssh "${ssh_options[@]}" -p "$port" "$remote" "mkdir -p '$release'"
           scp "${ssh_options[@]}" -P "$port" "$RUNNER_TEMP/release.tar.gz" "$remote:$release/release.tar.gz"
-          ssh "${ssh_options[@]}" -p "$port" "$remote" "tar -xzf '$release/release.tar.gz' -C '$release' --strip-components=1 && rm -f '$release/release.tar.gz'"
+          ssh "${ssh_options[@]}" -p "$port" "$remote" "tar -xzf '$release/release.tar.gz' -C '$release' && rm -f '$release/release.tar.gz'"
 
           trap cleanup_registry_login EXIT
           printf '%s' "$GHCR_READ_TOKEN" | ssh "${ssh_options[@]}" -p "$port" "$remote" "docker login ghcr.io --username '$GHCR_USERNAME' --password-stdin"
