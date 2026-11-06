@@ -4,9 +4,6 @@ set -Eeuo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 scratch="$(mktemp -d)"
 trap 'rm -rf -- "$scratch"' EXIT
-mkdir -p "$scratch/root/releases/$sha/infrastructure"
-cp "$repo/infrastructure/compose.prod.yml" \
-   "$scratch/root/releases/$sha/infrastructure/compose.prod.yml"
 export MOCK_LOG="$scratch/docker.log"
 export MOCK_CONTAINER_IDS=''
 export PATH="$scratch/bin:$PATH"
@@ -77,8 +74,10 @@ sha_b="$(printf 'b%.0s' {1..40})"
 image_a="ghcr.io/example/remote-control-agent:$sha_a"
 image_b="ghcr.io/example/remote-control-agent:$sha_b"
 for sha in "$sha_a" "$sha_b"; do
-  mkdir -p "$scratch/root/releases/$sha"
-  cp "$repo/infrastructure/compose.prod.yml" "$scratch/root/releases/$sha/compose.prod.yml"
+  sha="..."
+  mkdir -p "$scratch/root/releases/$sha/infrastructure"
+  cp "$repo/infrastructure/compose.prod.yml" \
+    "$scratch/root/releases/$sha/infrastructure/compose.prod.yml"
 done
 
 bash "$repo/scripts/deploy.sh" apply "$scratch/root" "$sha_a" "$image_a"
