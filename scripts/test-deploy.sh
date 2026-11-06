@@ -4,7 +4,9 @@ set -Eeuo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 scratch="$(mktemp -d)"
 trap 'rm -rf -- "$scratch"' EXIT
-mkdir -p "$scratch/bin" "$scratch/root/infrastructure" "$scratch/root/shared"
+mkdir -p "$scratch/root/releases/$sha/infrastructure"
+cp "$repo/infrastructure/compose.prod.yml" \
+   "$scratch/root/releases/$sha/infrastructure/compose.prod.yml"
 export MOCK_LOG="$scratch/docker.log"
 export MOCK_CONTAINER_IDS=''
 export PATH="$scratch/bin:$PATH"

@@ -140,7 +140,7 @@ jobs:
           release="$root/releases/$GITHUB_SHA"
           ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -p "$port" "$VPS_USER@$VPS_HOST" \
-            "bash '$release/deploy.sh' verify '$root' '$GITHUB_SHA'"
+            "bash '$release/scripts/deploy.sh' verify '$root' '$GITHUB_SHA'"
 
   rollback:
     needs: [deploy, verify]

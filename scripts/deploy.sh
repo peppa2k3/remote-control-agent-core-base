@@ -15,7 +15,7 @@ project=infrastructure
 
 config_dir="$root/infrastructure"
 release="$root/releases/$sha"
-compose_file="$release/compose.prod.yml"
+compose_file="$release/infrastructure/compose.prod.yml"
 deploy_env="$config_dir/.env"
 backend_env="$config_dir/backend.env"
 state="$root/shared/current-release.env"
@@ -39,7 +39,7 @@ compose() {
   shift 2
   APP_IMAGE="$target_image" BACKEND_ENV_FILE="$backend_env" \
     docker compose -p "$project" --project-directory "$config_dir" --env-file "$deploy_env" \
-      -f "$root/releases/$target_sha/compose.prod.yml" "$@"
+      -f "$root/releases/$target_sha/infrastructure/compose.prod.yml" "$@"
 }
 
 check_environment() {
@@ -117,7 +117,7 @@ read_current() {
     [[ "$previous_sha" =~ ^[a-f0-9]{40}$ ]] && valid_image "$previous_image" && [[ "${previous_image##*:}" == "$previous_sha" ]] || {
       echo 'Invalid current-release.env; stop and inspect deployment state'; return 1;
     }
-    [[ -f "$root/releases/$previous_sha/compose.prod.yml" ]] || {
+    [[ -f "$root/releases/$previous_sha/infrastructure/compose.prod.yml" ]] || {
       echo 'Previous Compose release is missing; refusing to replace it'; return 1;
     }
   else
@@ -156,7 +156,7 @@ rollback_pending() {
   else
     valid_previous_image "$old_image" || return 1
     if [[ -n "$old_sha" ]]; then
-      [[ "$old_sha" =~ ^[a-f0-9]{40}$ && -f "$root/releases/$old_sha/compose.prod.yml" ]] || return 1
+      [[ "$old_sha" =~ ^[a-f0-9]{40}$ && -f "$root/releases/$old_sha/infrastructure/compose.prod.yml" ]] || return 1
     else
       old_sha="$sha"
     fi
