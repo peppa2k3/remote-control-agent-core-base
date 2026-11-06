@@ -4,6 +4,7 @@ set -Eeuo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 scratch="$(mktemp -d)"
 trap 'rm -rf -- "$scratch"' EXIT
+mkdir -p "$scratch/bin" "$scratch/root/infrastructure" "$scratch/root/shared"
 export MOCK_LOG="$scratch/docker.log"
 export MOCK_CONTAINER_IDS=''
 export PATH="$scratch/bin:$PATH"
@@ -73,12 +74,14 @@ sha_a="$(printf 'a%.0s' {1..40})"
 sha_b="$(printf 'b%.0s' {1..40})"
 image_a="ghcr.io/example/remote-control-agent:$sha_a"
 image_b="ghcr.io/example/remote-control-agent:$sha_b"
-for sha in "$sha_a" "$sha_b"; do
-  sha="..."
-  mkdir -p "$scratch/root/releases/$sha/infrastructure"
-  cp "$repo/infrastructure/compose.prod.yml" \
-    "$scratch/root/releases/$sha/infrastructure/compose.prod.yml"
-done
+prepare_release() {
+  local release_sha="$1"
+  local release_dir="$scratch/root/releases/$release_sha/infrastructure"
+  mkdir -p "$release_dir"
+  cp "$repo/infrastructure/compose.prod.yml" "$release_dir/compose.prod.yml"
+}
+prepare_release "$sha_a"
+prepare_release "$sha_b"
 
 bash "$repo/scripts/deploy.sh" apply "$scratch/root" "$sha_a" "$image_a"
 bash "$repo/scripts/deploy.sh" verify "$scratch/root" "$sha_a"
@@ -98,8 +101,7 @@ grep -q "up -d --no-deps --no-build --wait --wait-timeout 180 app" "$MOCK_LOG"
 
 sha_c="$(printf 'c%.0s' {1..40})"
 image_c="ghcr.io/example/remote-control-agent:$sha_c"
-mkdir -p "$scratch/root/releases/$sha_c"
-cp "$repo/infrastructure/compose.prod.yml" "$scratch/root/releases/$sha_c/compose.prod.yml"
+prepare_release "$sha_c"
 if MOCK_CONFLICT=1 bash "$repo/scripts/deploy.sh" apply "$scratch/root" "$sha_c" "$image_c" >/dev/null 2>&1; then
   echo 'An existing Traefik router conflict was accepted' >&2
   exit 1

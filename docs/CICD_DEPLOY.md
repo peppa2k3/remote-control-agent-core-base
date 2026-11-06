@@ -153,7 +153,7 @@ app_image="$(sed -n 's/^IMAGE=//p' "$root/shared/current-release.env")"
 APP_IMAGE="$app_image" BACKEND_ENV_FILE="$root/infrastructure/backend.env" \
 docker compose -p infrastructure --project-directory "$root/infrastructure" \
   --env-file "$root/infrastructure/.env" \
-  -f "$root/releases/$release_sha/compose.prod.yml" \
+  -f "$root/releases/$release_sha/infrastructure/compose.prod.yml" \
   logs --tail=100 app
 ```
 
@@ -178,7 +178,7 @@ chmod 600 "$root/shared/seed.compose.yml"
 APP_IMAGE="$app_image" BACKEND_ENV_FILE="$root/infrastructure/backend.env" \
   docker compose -p infrastructure --project-directory "$root/infrastructure" \
     --env-file "$root/infrastructure/.env" \
-    -f "$root/releases/$release_sha/compose.prod.yml" \
+    -f "$root/releases/$release_sha/infrastructure/compose.prod.yml" \
     -f "$root/shared/seed.compose.yml" \
     run --rm app node src/seed.js
 rm -f "$root/shared/seed.env" "$root/shared/seed.compose.yml"

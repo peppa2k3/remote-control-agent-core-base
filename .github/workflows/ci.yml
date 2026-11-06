@@ -32,8 +32,9 @@ jobs:
               -f infrastructure/compose.prod.yml config --quiet
       - name: Build production Docker image
         run: docker build --pull --file Dockerfile --tag "remote-control-agent-ci:$GITHUB_SHA" .
-      - name: Check deploy script and rollback flow
-        run: |
-          bash -n scripts/deploy.sh
-          bash -n scripts/test-deploy.sh
-          bash scripts/test-deploy.sh
+      - name: Check deploy script syntax
+        run: bash -n scripts/deploy.sh
+      - name: Check deploy test syntax
+        run: bash -n scripts/test-deploy.sh
+      - name: Exercise deploy and rollback flow
+        run: bash scripts/test-deploy.sh
