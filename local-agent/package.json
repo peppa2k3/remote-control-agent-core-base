@@ -1,0 +1,11 @@
+{
+  "name": "@rca/local-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js"
+  },
+  "dependencies": {
+    "socket.io-client": "4.8.4"
+  }
+}

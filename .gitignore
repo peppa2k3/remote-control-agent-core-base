@@ -1,0 +1,10 @@
+node_modules/
+.env
+**/.env
+**/data/
+**/dist/
+**/credentials.json
+*.sqlite*
+infrastructure/meshcentral/meshcentral-data/
+infrastructure/meshcentral/meshcentral-files/
+.codegraph/

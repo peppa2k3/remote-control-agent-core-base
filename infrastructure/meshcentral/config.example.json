@@ -1,0 +1,20 @@
+{
+  "settings": {
+    "cert": "mesh.example.com",
+    "port": 4430,
+    "aliasPort": 443,
+    "redirPort": 0,
+    "WANonly": true,
+    "tlsOffload": "172.18.0.2"
+  },
+  "domains": {
+    "": {
+      "title": "Remote Control Agent \u00b7 MeshCentral",
+      "newAccounts": false,
+      "certUrl": "https://mesh.example.com:443/",
+      "agentConfig": [
+        "webSocketMaskOverride=1"
+      ]
+    }
+  }
+}

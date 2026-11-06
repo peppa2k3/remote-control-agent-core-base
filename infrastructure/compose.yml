@@ -1,0 +1,45 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    env_file: ./backend.env
+    volumes:
+      - app-data:/data
+    networks:
+      - edge
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.rca.rule=Host(`${APP_DOMAIN}`)
+      - traefik.http.routers.rca.entrypoints=websecure
+      - traefik.http.routers.rca.tls.certresolver=${TRAEFIK_CERTRESOLVER}
+      - traefik.http.services.rca.loadbalancer.server.port=4000
+  meshcentral:
+    profiles: [mesh]
+    build:
+      context: ./meshcentral
+      args:
+        MESH_VERSION: ${MESH_VERSION}
+    restart: unless-stopped
+    init: true
+    volumes:
+      - ./meshcentral/meshcentral-data:/opt/meshcentral/meshcentral-data
+      - ./meshcentral/meshcentral-files:/opt/meshcentral/meshcentral-files
+    networks:
+      - edge
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.rca-mesh.rule=Host(`${MESH_DOMAIN}`)
+      - traefik.http.routers.rca-mesh.entrypoints=websecure
+      - traefik.http.routers.rca-mesh.tls.certresolver=${TRAEFIK_CERTRESOLVER}
+      - traefik.http.services.rca-mesh.loadbalancer.server.port=4430
+volumes:
+  app-data:
+networks:
+  edge:
+    external: true
+    name: ${TRAEFIK_NETWORK}
