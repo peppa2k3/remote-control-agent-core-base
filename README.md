@@ -4,11 +4,11 @@ Website điều phối các máy ở nhà qua VPS, hiển thị kết nối real
 ## Có gì trong source?
 - React/Vite giao diện login, danh sách máy, online/offline Local Runner, tạo mã pairing, yêu cầu/kết thúc phiên, owner takeover, cấp viewer/operator, thu hồi thiết bị.
 - Express + Socket.IO: cookie HttpOnly, SQLite lưu users/devices/members/pairing/lease/audit, xác thực socket, heartbeat, ACK local, timeout, revoke.
-- Local Runner kết nối outbound tới VPS, ghép cặp một lần có xác nhận console, reconnect, xác nhận yêu cầu điều khiển.
+- Local Runner kết nối outbound tới VPS, ghép cặp một lần có xác nhận console, reconnect, xác nhận yêu cầu điều khiển và gửi CPU/RAM/lưu lượng mạng định kỳ.
 - Docker/Traefik cho app, Dockerfile + cấu hình mẫu MeshCentral độc lập, hướng dẫn cài MeshCentral Agent.
 - Tài liệu kiến trúc, mô hình dữ liệu, bảo mật, API và 8 prompt phát triển tuần tự.
 
-**Chưa có:** adapter đọc trạng thái MeshCentral vào FE, desktop nhúng và cưỡng chế lease qua MeshCentral, chạy kịch bản, queue, voice/LLM, installer Windows. Giao diện ghi rõ MeshCentral chưa tích hợp. Không gọi bản này là production hoàn chỉnh.
+**Chưa có:** adapter đọc trạng thái MeshCentral vào FE, desktop nhúng và cưỡng chế lease qua MeshCentral, chạy kịch bản, queue, voice/LLM, installer Windows. Status CPU/RAM/mạng do Local Runner thu thập, chỉ giữ trong bộ nhớ backend và không thay thế trạng thái MeshCentral. Giao diện ghi rõ MeshCentral chưa tích hợp. Không gọi bản này là production hoàn chỉnh.
 
 ## Công nghệ
 | Phần | Công nghệ | Vai trò |
@@ -46,6 +46,7 @@ npm run dev:frontend
 npm run agent
 ```
 Gõ YES trên máy local để xác nhận ghép cặp; xóa PAIR_CODE sau khi thành công. Web cập nhật online sau khi socket xác thực.
+Runner gửi status CPU, RAM, tải mạng xuống/lên và uptime mỗi 10 giây theo mặc định. Có thể đổi `STATUS_INTERVAL_SECONDS` trong `local-agent/.env` từ 5 đến 60 giây. Linux bỏ loopback khi cộng bộ đếm adapter; Windows cộng các adapter được `Get-NetAdapterStatistics` trả về. Adapter ảo/VPN có thể được tính vào.
 7. Web chọn Yêu cầu điều khiển; gõ YES trên console local trong 20 giây. Phiên chuyển pending → active. Core hiện chưa chạy thao tác máy.
 
 Tạo user thứ hai: sửa SEED_EMAIL/SEED_PASSWORD/SEED_NAME trong backend/.env, chạy seed lần nữa (không thay mật khẩu tài khoản đã có). Owner cấp quyền theo email trên dashboard. Dùng browser/profile khác để kiểm tra tranh chấp phiên; owner có nút lấy quyền.

@@ -16,6 +16,6 @@
     "agent": "npm start -w local-agent",
     "build": "npm run build -w frontend",
     "start": "npm start -w backend",
-    "test": "npm test -w backend"
+    "test": "npm test -w backend && npm test -w local-agent"
   }
 }

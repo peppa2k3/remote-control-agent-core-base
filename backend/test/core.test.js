@@ -32,12 +32,20 @@ test('HTTP + realtime: pairing, membership privacy, handshake, takeover, disconn
  function sock(auth={},cookie){const s=io(url,{autoConnect:false,transports:['websocket'],auth,extraHeaders:cookie?{Cookie:cookie,Origin:'http://localhost:5173'}:{}});sockets.push(s);return s}
  const a=sock({kind:'agent',credential:d.credential}),o=sock({},oc),p=sock({},pc),x=sock({},xc);const ps=[a,o,p,x].map(s=>{const wait=connected(s);s.connect();return wait});await Promise.all(ps);
  assert.equal((await emit(x,'session:request',{deviceId:d.deviceId})).status,403);
+ const statusReport={cpuPercent:37.5,ramUsedBytes:600,ramTotalBytes:1000,networkRxBytesPerSecond:2048,networkTxBytesPerSecond:512,uptimeSeconds:3600};
+ const ownerSnapshot=once(o,'devices:snapshot');assert.equal((await emit(a,'agent:status',statusReport)).ok,true);const [statusRows]=await ownerSnapshot;assert.deepEqual(statusRows.find(row=>row.id===d.deviceId).status,{...statusReport,updatedAt:statusRows.find(row=>row.id===d.deviceId).status.updatedAt});
+ assert.deepEqual((await request('/devices',{cookie:oc,method:'GET'})).data[0].status,statusRows.find(row=>row.id===d.deviceId).status);
+ assert.deepEqual((await request('/devices',{cookie:pc,method:'GET'})).data[0].status,statusRows.find(row=>row.id===d.deviceId).status);
+ assert.equal((await request('/devices',{cookie:xc,method:'GET'})).data.length,0);
+ assert.equal((await emit(a,'agent:status',{...statusReport,cpuPercent:101})).status,400);
+ assert.equal((await emit(a,'agent:status',{...statusReport,deviceId:'another-device'})).status,400);
+ assert.equal((await emit(a,'agent:status',statusReport)).status,429);
  let offerWait=once(a,'session:offer');const first=await emit(p,'session:request',{deviceId:d.deviceId});const [offer]=await offerWait;assert.equal(first.state,'pending');const activeWait=once(p,'session:active');assert.equal((await emit(a,'session:ack',{sessionId:offer.sessionId,nonce:offer.nonce,accept:true})).ok,true);await activeWait;
  assert.equal((await emit(o,'session:request',{deviceId:d.deviceId})).status,409);
  const revoked=once(p,'session:revoked');offerWait=once(a,'session:offer');const takeover=await emit(o,'session:request',{deviceId:d.deviceId,force:true});await revoked;const [newOffer]=await offerWait;assert.notEqual(takeover.sessionId,first.sessionId);
  assert.equal((await emit(p,'session:renew',{deviceId:d.deviceId,sessionId:first.sessionId})).status,403);
  await emit(a,'session:ack',{sessionId:newOffer.sessionId,nonce:newOffer.nonce,accept:true});
- const offline=once(o,'session:revoked');a.disconnect();await offline;assert.equal(core.db.lease(d.deviceId),null);
+ const offline=once(o,'session:revoked');a.disconnect();await offline;assert.equal(core.db.lease(d.deviceId),null);const offlineDevice=(await request('/devices',{cookie:oc,method:'GET'})).data[0];assert.equal(offlineDevice.runnerStatus,'offline');assert.equal(offlineDevice.status,null);
  assert.equal((await emit(o,'session:request',{deviceId:d.deviceId})).status,409);
  const invalid=sock({kind:'agent',credential:'invalid'});const denied=once(invalid,'connect_error');invalid.connect();await denied;invalid.disconnect();
  await request(`/devices/${d.deviceId}`,{cookie:oc,method:'DELETE'});assert.equal(core.db.agent(d.credential),undefined);assert.ok(core.db.all('SELECT * FROM audit WHERE deviceId=?',d.deviceId).length>=5);
@@ -52,7 +60,8 @@ test('real Local Runner connects and auto-approves only a server-issued handshak
  const file=join(dir,'credentials.json');writeFileSync(file,JSON.stringify({...d,server:url}),{mode:0o600});let child;
  t.after(async()=>{if(child&&child.exitCode===null&&child.signalCode===null){const exit=once(child,'exit');child.kill('SIGTERM');await exit}browser.disconnect();await core.close();rmSync(dir,{recursive:true,force:true})});
  const online=new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Runner did not connect')),5000);browser.on('devices:snapshot',rows=>{if(rows.some(v=>v.id===d.deviceId&&v.runnerStatus==='online')){clearTimeout(timeout);resolve()}})});
- child=spawn(process.execPath,[fileURLToPath(new URL('../../local-agent/src/index.js',import.meta.url))],{env:{...process.env,SERVER_URL:url,CREDENTIALS_PATH:file,AUTO_APPROVE_SESSIONS:'true'},stdio:['ignore','ignore','pipe']});
- await online;const active=once(browser,'session:active');const result=await emit(browser,'session:request',{deviceId:d.deviceId});assert.equal(result.state,'pending');const [session]=await active;assert.equal(core.db.lease(d.deviceId).id,session.sessionId);assert.equal(core.db.lease(d.deviceId).state,'active');
+ const statusReported=new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Runner did not report device status')),15000);browser.on('devices:snapshot',rows=>{const device=rows.find(v=>v.id===d.deviceId);if(device?.status){clearTimeout(timeout);resolve(device.status)}})});
+ child=spawn(process.execPath,[fileURLToPath(new URL('../../local-agent/src/index.js',import.meta.url))],{env:{...process.env,SERVER_URL:url,CREDENTIALS_PATH:file,AUTO_APPROVE_SESSIONS:'true',STATUS_INTERVAL_SECONDS:'5'},stdio:['ignore','ignore','pipe']});
+ await Promise.all([online,statusReported]);const active=once(browser,'session:active');const result=await emit(browser,'session:request',{deviceId:d.deviceId});assert.equal(result.state,'pending');const [session]=await active;assert.equal(core.db.lease(d.deviceId).id,session.sessionId);assert.equal(core.db.lease(d.deviceId).state,'active');
  const revoked=once(browser,'session:revoked');const exit=once(child,'exit');child.kill('SIGTERM');await Promise.all([revoked,exit]);assert.equal(core.db.lease(d.deviceId),null);
 });

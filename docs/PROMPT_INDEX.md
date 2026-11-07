@@ -16,3 +16,9 @@ Câu lệnh gửi AI:
 > Đọc AGENTS.md và docs/AI_CONTEXT.md. Thực hiện docs/prompts/planned/001-core-base.md trên source hiện tại. Không khởi tạo lại repo. Kiểm tra code, sửa các thiếu sót, chạy test/build, cập nhật docs/PROGRESS.md; báo rõ phần nào cần môi trường VPS thật.
 
 Thay tên file cho bước tiếp theo. Nếu thiếu domain/IP/key thật, AI hoàn thiện code/env examples/local tests trước và ghi rõ input còn thiếu; không bịa credential hoặc kết quả triển khai. Prompt completed là kết quả của acceptance criteria, không phải tự động khi tạo file.
+
+## Prompt bổ sung
+
+| Trạng thái | File | Mục tiêu |
+|---|---|---|
+| Completed | [002-device-status.md](prompts/completed/002-device-status.md) | Báo CPU/RAM/network từ Local Runner và hiển thị theo quyền trên dashboard |

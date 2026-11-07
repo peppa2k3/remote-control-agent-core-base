@@ -10,7 +10,9 @@ flowchart TD
 Traefik đứng trước Express và MeshCentral, hai domain HTTPS riêng. SQLite không public. MeshCentral data không dùng chung file DB của Express. Không truyền credential MeshCentral admin xuống FE.
 
 ## Presence
-Socket xác thực → agent ready → heartbeat mỗi 5s → backend cập nhật seen → snapshot gửi cho các browser có quyền mỗi 2s. Quá 25s không có heartbeat backend disconnect và revoke lease. Mất kết nối được đánh offline ngay khi phát hiện. Một credential chỉ có một socket agent active. Agent thứ hai bị từ chối, không thay socket đang sống.
+Socket xác thực → agent ready → heartbeat mỗi 5s → backend cập nhật seen → snapshot gửi cho các browser có quyền mỗi 2s. Local Runner lấy CPU, RAM và bộ đếm byte mạng; mặc định gửi `agent:status` mỗi 10 giây (cấu hình 5–60 giây). Backend kiểm tra schema và giới hạn tần suất, giữ status trong bộ nhớ rồi đưa vào snapshot theo cùng bộ lọc membership. Status không được ghi SQLite; nó bị xóa khi runner offline hoặc backend khởi động lại. Quá 25s không có heartbeat backend disconnect và revoke lease. Mất kết nối được đánh offline ngay khi phát hiện. Một credential chỉ có một socket agent active. Agent thứ hai bị từ chối, không thay socket đang sống.
+
+Status mạng là tốc độ byte nhận/gửi. Linux cộng các adapter trong `/proc/net/dev` trừ `lo`; Windows cộng các adapter do `Get-NetAdapterStatistics` trả về qua lệnh PowerShell cố định trong Local Runner. Adapter ảo/VPN có thể được tính vào. Khi runner offline hoặc chưa có mẫu đầu tiên, UI để số liệu là chưa có thay vì suy đoán.
 VPS mất kết nối browser: FE xóa snapshot và hiển thị chưa kết nối; kết nối lại nhận snapshot mới. Browser không thể biết VPS mất điện hay mạng client bị lỗi chỉ từ disconnect. Runner online nghĩa là tiến trình runner liên lạc được, không bảo đảm desktop interactive đang sẵn sàng.
 
 ## Lease / handshake

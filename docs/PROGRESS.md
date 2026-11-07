@@ -2,6 +2,7 @@
 | Bước | Trạng thái | Kết quả |
 |---|---|---|
 | 001 Core | Source và test loopback đạt trên Windows Node 24; cần nghiệm thu VPS/local thật | Auth, pairing, realtime runner, RBAC, lease, ACK, owner takeover; sửa test runner Windows và trạng thái FE khi mất VPS |
+| Device status (`002-device-status`) | Source + unit/integration tests + build; chưa nghiệm thu trên máy nhà thật | Runner gửi CPU/RAM/network theo chu kỳ cấu hình, backend kiểm tra/giới hạn, dashboard hiển thị cho user có quyền; status chỉ trong memory |
 | 002 Quản lý user/device | Planned | Invite, MFA, rotation, lastSeen persistent, migrations |
 | 003 MeshCentral adapter | Planned | Mapping, realtime Mesh presence, enforce remote desktop lease |
 | 004 Script runner | Planned | Allowlist, params schema, safe execution/cancel/fencing |

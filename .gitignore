@@ -9,3 +9,5 @@ infrastructure/meshcentral/meshcentral-data/
 infrastructure/meshcentral/meshcentral-files/
 .codegraph/
 ref/*
+deploy-guides.md
+local-agent/data-backup/*

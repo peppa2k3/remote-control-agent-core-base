@@ -1,5 +1,11 @@
 # Validation — 2026-10-14 (Asia/Saigon)
 
+## Device status — 2026-11-07 (Asia/Bangkok)
+- `npm test`: backend 3/3 pass; Local Runner status 4/4 pass. Integration test chạy Local Runner thật trên Windows Node 24.16.0, nhận CPU/RAM/network status qua Socket.IO và `Get-NetAdapterStatistics`, đồng thời xác nhận status biến mất khi runner disconnect.
+- Backend realtime test xác nhận status chỉ hiển thị với owner/operator có quyền; outsider không thấy máy, schema sai và report dày hơn 1/giây bị từ chối.
+- `npm run build`: Vite 8.3.4 thành công (44 modules).
+- Linux `/proc/net/dev` parser và bộ tính sample được kiểm tra bằng fixture; chưa chạy Local Runner trên máy Linux thật. Chưa nghiệm thu dashboard qua VPS/domain hoặc máy nhà thật; status hiện chỉ trong memory backend và mất sau restart.
+
 ## Kiểm tra bổ sung 2026-10-15 (Asia/Bangkok)
 - Windows, Node v24.16.0: `npm ci` thành công, 0 vulnerabilities theo npm audit trong quá trình cài.
 - `npm test`: 3/3 pass. Sửa đường dẫn khi spawn Local Runner bằng `fileURLToPath` và dọn tiến trình con theo `signalCode` trên Windows.

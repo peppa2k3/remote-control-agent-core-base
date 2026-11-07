@@ -5,6 +5,7 @@
 - Device pairing code entropy 256-bit, TTL 5 phút, one-use transaction. Device credential opaque, hash trong DB; console local xác nhận enrollment server.
 - Server kiểm tra quyền mỗi thao tác lease; ACK bắt buộc từ device socket; nonce/sessionId/TTL chống ACK cũ. Lease khóa cả pending và active.
 - Token hết hạn được sweep; logout ngắt browser của login tương ứng; revoke member/device dừng phiên.
+- Status thiết bị chỉ nhận trên socket runner đã xác thực credential; server xác định deviceId từ socket, kiểm tra từng giá trị và giới hạn gửi tối đa 1 lần/giây. Dữ liệu status không có command, path hay nội dung do frontend cung cấp và không được lưu/audit lâu dài.
 - Không executor shell/code trong core. Local không mở HTTP listener/inbound port.
 
 ## Trước khi dùng với máy thật

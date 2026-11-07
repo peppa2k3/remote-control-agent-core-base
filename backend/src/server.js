@@ -6,13 +6,24 @@ import {resolve} from 'node:path';
 import {existsSync} from 'node:fs';
 import {Server} from 'socket.io';
 import {Store,hash,token,passwordOK,fail} from './store.js';
+const STATUS_FIELDS=['cpuPercent','ramUsedBytes','ramTotalBytes','networkRxBytesPerSecond','networkTxBytesPerSecond','uptimeSeconds'];
+const STATUS_MAX_AGE_MS=180000;
+function validateDeviceStatus(value){
+ if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==STATUS_FIELDS.length||STATUS_FIELDS.some(k=>!Object.hasOwn(value,k)))fail(400,'Thông số status không hợp lệ');
+ const {cpuPercent,ramUsedBytes,ramTotalBytes,networkRxBytesPerSecond,networkTxBytesPerSecond,uptimeSeconds}=value;
+ if(typeof cpuPercent!=='number'||!Number.isFinite(cpuPercent)||cpuPercent<0||cpuPercent>100)fail(400,'Thông số CPU không hợp lệ');
+ if(!Number.isSafeInteger(ramTotalBytes)||ramTotalBytes<=0||!Number.isSafeInteger(ramUsedBytes)||ramUsedBytes<0||ramUsedBytes>ramTotalBytes)fail(400,'Thông số RAM không hợp lệ');
+ if(!Number.isSafeInteger(networkRxBytesPerSecond)||networkRxBytesPerSecond<0||!Number.isSafeInteger(networkTxBytesPerSecond)||networkTxBytesPerSecond<0)fail(400,'Thông số mạng không hợp lệ');
+ if(!Number.isSafeInteger(uptimeSeconds)||uptimeSeconds<0)fail(400,'Thông số uptime không hợp lệ');
+ return {cpuPercent,ramUsedBytes,ramTotalBytes,networkRxBytesPerSecond,networkTxBytesPerSecond,uptimeSeconds};
+}
 export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origin=process.env.PUBLIC_ORIGIN||'http://localhost:5173',secure=process.env.COOKIE_SECURE==='true'}={}) {
  const db=new Store(dbPath), app=express(), http=createServer(app);
  if(process.env.TRUST_PROXY==='true')app.set('trust proxy',1);
  app.use(helmet());app.use(express.json({limit:'16kb'}));
  app.use('/api',rateLimit({windowMs:60000,limit:180}));
  const io=new Server(http,{cors:{origin,credentials:true},maxHttpBufferSize:16384,allowRequest:(req,done)=>done(null,!req.headers.origin||req.headers.origin===origin)});
- const agents=new Map(), viewers=new Map();
+ const agents=new Map(), viewers=new Map(), deviceStatuses=new Map();
  const cookie=req=>{const part=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('rca='));return part?part.slice(4):''};
  function user(req){const s=db.one('SELECT userId,expires FROM logins WHERE hash=?',hash(cookie(req)));if(!s||s.expires<Date.now())fail(401,'Cần đăng nhập');return s.userId}
  const auth=(req,res,next)=>{try{req.userId=user(req);next()}catch(e){next(e)}};
@@ -20,7 +31,7 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
  const writeOrigin=(req,res,next)=>{if(['POST','PUT','DELETE','PATCH'].includes(req.method)&&req.headers.origin!==origin)return res.status(403).json({error:'Origin không hợp lệ'});next()};
  function validString(v,max=120){if(typeof v!=='string'||!v.trim()||v.length>max)fail(400,'Dữ liệu không hợp lệ');return v.trim()}
  function stop(d,event){const l=db.release(d,event);if(l){agents.get(d)?.socket.emit('session:revoked',{sessionId:l.id,reason:event});io.to(l.browserId).emit('session:revoked',{deviceId:d,sessionId:l.id,reason:event})}}
- function visible(u){const now=Date.now();return db.all(`SELECT d.id,d.name,d.ownerId,CASE WHEN d.ownerId=? THEN 'owner' ELSE m.role END AS role,l.id AS sessionId,l.userId AS sessionUserId,l.state AS sessionState,l.expires AS sessionExpires FROM devices d LEFT JOIN members m ON m.deviceId=d.id AND m.userId=? LEFT JOIN leases l ON l.deviceId=d.id AND l.expires>? WHERE d.revoked=0 AND (d.ownerId=? OR m.userId IS NOT NULL)`,u,u,now,u).map(d=>{const a=agents.get(d.id),live=!!a&&now-a.seen<25000;return {id:d.id,name:d.name,ownerId:d.ownerId,role:d.role,runnerStatus:live?'online':'offline',lastSeen:a?.seen??null,meshStatus:'not_integrated',session:d.sessionId?{id:d.sessionId,userId:d.sessionUserId,state:d.sessionState,expires:d.sessionExpires}:null}})}
+ function visible(u){const now=Date.now();return db.all(`SELECT d.id,d.name,d.ownerId,CASE WHEN d.ownerId=? THEN 'owner' ELSE m.role END AS role,l.id AS sessionId,l.userId AS sessionUserId,l.state AS sessionState,l.expires AS sessionExpires FROM devices d LEFT JOIN members m ON m.deviceId=d.id AND m.userId=? LEFT JOIN leases l ON l.deviceId=d.id AND l.expires>? WHERE d.revoked=0 AND (d.ownerId=? OR m.userId IS NOT NULL)`,u,u,now,u).map(d=>{const a=agents.get(d.id),live=!!a&&now-a.seen<25000,status=deviceStatuses.get(d.id);return {id:d.id,name:d.name,ownerId:d.ownerId,role:d.role,runnerStatus:live?'online':'offline',lastSeen:a?.seen??null,meshStatus:'not_integrated',status:live&&status&&now-status.updatedAt<=STATUS_MAX_AGE_MS?status:null,session:d.sessionId?{id:d.sessionId,userId:d.sessionUserId,state:d.sessionState,expires:d.sessionExpires}:null}})}
  function broadcast(){const snapshots=new Map();for(const [id,u]of viewers){const s=io.sockets.sockets.get(id);if(!s)continue;if(!snapshots.has(u))snapshots.set(u,visible(u));s.emit('devices:snapshot',snapshots.get(u))}}
  app.get('/api/health',(req,res)=>res.json({status:'ok',at:Date.now()}));
  app.post('/api/auth/login',writeOrigin,rateLimit({windowMs:60000,limit:10}), (req,res)=>{const email=validString(req.body.email,254).toLowerCase(),pw=validString(req.body.password,256),u=db.one('SELECT * FROM users WHERE email=?',email);if(!passwordOK(pw,u?.password||'invalid'))fail(401,'Thông tin đăng nhập không đúng');const key=token();db.run('INSERT INTO logins VALUES(?,?,?)',hash(key),u.id,Date.now()+8*3600000);res.cookie('rca',key,{httpOnly:true,secure,sameSite:'strict',maxAge:8*3600000,path:'/'});res.json({id:u.id,email:u.email,name:u.name})});
@@ -42,10 +53,12 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
  io.on('connection',socket=>{
   if(socket.data.deviceId){
    const d=socket.data.deviceId;if(agents.has(d)){socket.disconnect(true);return} // no silent replacement of an active agent
-   agents.set(d,{socket,seen:Date.now()});socket.emit('agent:ready',{deviceId:d});broadcast();
+   deviceStatuses.delete(d);agents.set(d,{socket,seen:Date.now()});socket.emit('agent:ready',{deviceId:d});broadcast();
    socket.on('agent:heartbeat',(_,ack)=>{if(agents.get(d)?.socket!==socket)return;agents.get(d).seen=Date.now();ack?.({ok:true,at:Date.now()})});
+   let lastStatusAt=0;
+   socket.on('agent:status',(payload,ack)=>{if(agents.get(d)?.socket!==socket)return;try{const status=validateDeviceStatus(payload),now=Date.now();if(now-lastStatusAt<1000)fail(429,'Status được gửi quá thường xuyên');lastStatusAt=now;deviceStatuses.set(d,{...status,updatedAt:now});ack?.({ok:true,at:now});broadcast()}catch(e){ack?.({error:e.message,status:e.status||400})}});
    socket.on('session:ack',(p,ack)=>{try{if(Date.now()-agents.get(d).seen>=25000)fail(409,'Heartbeat quá hạn');const l=db.ack(d,p?.sessionId,p?.nonce,p?.accept===true);if(l){socket.emit('session:active',{sessionId:l.id,expires:l.expires});io.to(l.browserId).emit('session:active',{deviceId:d,sessionId:l.id,expires:l.expires})}broadcast();ack?.({ok:true})}catch(e){ack?.({error:e.message})}});
-   socket.on('disconnect',()=>{if(agents.get(d)?.socket===socket){agents.delete(d);stop(d,'agent.disconnected');broadcast()}});
+   socket.on('disconnect',()=>{if(agents.get(d)?.socket===socket){agents.delete(d);deviceStatuses.delete(d);stop(d,'agent.disconnected');broadcast()}});
   }else{
    let eventWindow=Date.now(),eventCount=0;const u=socket.data.userId;viewers.set(socket.id,u);socket.emit('devices:snapshot',visible(u));
    function handle(event,fn){socket.on(event,(p,ack)=>{try{if(Date.now()-eventWindow>10000){eventWindow=Date.now();eventCount=0}if(++eventCount>100)fail(429,'Quá nhiều yêu cầu realtime');if(user(socket.request)!==u)fail(401,'Phiên đăng nhập hết hạn');ack?.({ok:true,...fn(p||{})})}catch(e){ack?.({error:e.message,status:e.status||400})}})}
