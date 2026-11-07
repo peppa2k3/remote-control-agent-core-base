@@ -3,9 +3,10 @@
 |---|---|---|
 | 001 Core | Source và test loopback đạt trên Windows Node 24; cần nghiệm thu VPS/local thật | Auth, pairing, realtime runner, RBAC, lease, ACK, owner takeover; sửa test runner Windows và trạng thái FE khi mất VPS |
 | Device status (`002-device-status`) | Source + unit/integration tests + build; chưa nghiệm thu trên máy nhà thật | Runner gửi CPU/RAM/network theo chu kỳ cấu hình, backend kiểm tra/giới hạn, dashboard hiển thị cho user có quyền; status chỉ trong memory |
+| Script options (`003-send-commandline`, bổ sung) | Source + tests + build trên Windows; cần kiểm tra máy local Linux/VPS thật | Dashboard chọn script allowlist, nhập schema params, xem log; runner map file option ID sang path local và spawn không qua shell. Takeover bị chặn đến khi runner xác nhận script cũ đã dừng. |
 | 002 Quản lý user/device | Planned | Invite, MFA, rotation, lastSeen persistent, migrations |
 | 003 MeshCentral adapter | Planned | Mapping, realtime Mesh presence, enforce remote desktop lease |
-| 004 Script runner | Planned | Allowlist, params schema, safe execution/cancel/fencing |
+| 004 Script runner nâng cao | Planned | Bổ sung schema version, fencing token và bảo đảm hủy process tree trên các hệ điều hành mục tiêu |
 | 005 Jobs/queue/history | Planned | Retry/idempotency/logs/concurrency=1 |
 | 006 Dashboard | Planned | Management/history/notifications/mobile/theme |
 | 007 Production/CI/CD | Partial | CI kiểm tra/test/build; GitHub Actions build một image GHCR theo commit SHA, deploy qua SSH, kiểm tra health HTTPS và rollback image. Còn nghiệm thu VPS thật, backup/restore và hardening production. |

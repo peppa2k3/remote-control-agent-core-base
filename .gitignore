@@ -11,3 +11,4 @@ infrastructure/meshcentral/meshcentral-files/
 ref/*
 deploy-guides.md
 local-agent/data-backup/*
+local-agent-local/*

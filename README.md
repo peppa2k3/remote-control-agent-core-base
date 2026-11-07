@@ -2,13 +2,13 @@
 Website điều phối các máy ở nhà qua VPS, hiển thị kết nối realtime, chia sẻ quyền và cấp phiên điều khiển độc quyền có handshake. Windows/Linux là mục tiêu local; Node.js 24 là runtime.
 
 ## Có gì trong source?
-- React/Vite giao diện login, danh sách máy, online/offline Local Runner, tạo mã pairing, yêu cầu/kết thúc phiên, owner takeover, cấp viewer/operator, thu hồi thiết bị.
+- React/Vite giao diện login, danh sách máy, online/offline Local Runner, tạo mã pairing, yêu cầu/kết thúc phiên, owner takeover, cấp viewer/operator, thu hồi thiết bị và chạy script allowlist có stream log.
 - Express + Socket.IO: cookie HttpOnly, SQLite lưu users/devices/members/pairing/lease/audit, xác thực socket, heartbeat, ACK local, timeout, revoke.
-- Local Runner kết nối outbound tới VPS, ghép cặp một lần có xác nhận console, reconnect, xác nhận yêu cầu điều khiển và gửi CPU/RAM/lưu lượng mạng định kỳ.
+- Local Runner kết nối outbound tới VPS, ghép cặp một lần có xác nhận console, reconnect, xác nhận yêu cầu điều khiển, gửi CPU/RAM/lưu lượng mạng và chạy script đã cấu hình cục bộ.
 - Docker/Traefik cho app, Dockerfile + cấu hình mẫu MeshCentral độc lập, hướng dẫn cài MeshCentral Agent.
 - Tài liệu kiến trúc, mô hình dữ liệu, bảo mật, API và 8 prompt phát triển tuần tự.
 
-**Chưa có:** adapter đọc trạng thái MeshCentral vào FE, desktop nhúng và cưỡng chế lease qua MeshCentral, chạy kịch bản, queue, voice/LLM, installer Windows. Status CPU/RAM/mạng do Local Runner thu thập, chỉ giữ trong bộ nhớ backend và không thay thế trạng thái MeshCentral. Giao diện ghi rõ MeshCentral chưa tích hợp. Không gọi bản này là production hoàn chỉnh.
+**Chưa có:** adapter đọc trạng thái MeshCentral vào FE, desktop nhúng và cưỡng chế lease qua MeshCentral, queue/history đầy đủ, voice/LLM, installer Windows. Script chạy theo allowlist local; không nhận terminal command tùy ý. Status và job/output hiện chỉ ở bộ nhớ backend, không thay thế trạng thái MeshCentral. Giao diện ghi rõ MeshCentral chưa tích hợp. Không gọi bản này là production hoàn chỉnh.
 
 ## Công nghệ
 | Phần | Công nghệ | Vai trò |
@@ -16,7 +16,7 @@ Website điều phối các máy ở nhà qua VPS, hiển thị kết nối real
 | Website | React + Vite + CSS | Dashboard điều phối; deploy static cùng Express để cùng origin |
 | Backend VPS | Node.js 24, Express 5, Socket.IO 4 | Auth/RBAC, registry, lease, realtime |
 | Database app | SQLite WAL qua node:sqlite | Starter nhẹ, một backend process; không cần MongoDB có AVX |
-| Máy nhà | Local Runner Node.js + socket.io-client | Heartbeat, handshake; script executor ở Step 04 |
+| Máy nhà | Local Runner Node.js + socket.io-client | Heartbeat, handshake, status và script allowlist qua Socket.IO |
 | Quản trị từ xa | MeshCentral Server + MeshCentral Agent | Desktop/terminal/files; tích hợp app ở Step 03 |
 | Deploy | Docker Compose + Traefik có HTTPS | App domain và MeshCentral domain riêng |
 
@@ -40,14 +40,14 @@ npm run dev:backend
 npm run dev:frontend
 ```
 4. Mở **http://localhost:5173** và đăng nhập. Không đổi sang 127.0.0.1 ở browser vì Origin/cookie được kiểm tra.
-5. Tạo mã ghép cặp. Copy `local-agent/.env.example` thành `local-agent/.env`, đặt PAIR_CODE=mã vừa tạo.
+5. Tạo mã ghép cặp. Copy `local-agent/.env.example` thành `local-agent/.env`, đặt PAIR_CODE=mã vừa tạo. Để khai báo các option chạy script, copy `local-agent/scripts.example.json` thành `local-agent/data/scripts.json`, rồi sửa executable, cwd cố định, args và choices phù hợp máy đó. Ví dụ mẫu nhận scenario, profile, file variables chọn từ allowlist và checkbox `--wait`.
 6. Terminal thứ ba:
 ```sh
 npm run agent
 ```
-Gõ YES trên máy local để xác nhận ghép cặp; xóa PAIR_CODE sau khi thành công. Web cập nhật online sau khi socket xác thực.
+Gõ YES trên máy local để xác nhận ghép cặp; xóa PAIR_CODE sau khi thành công. Web cập nhật online sau khi socket xác thực và hiện các option từ `scripts.json`.
 Runner gửi status CPU, RAM, tải mạng xuống/lên và uptime mỗi 10 giây theo mặc định. Có thể đổi `STATUS_INTERVAL_SECONDS` trong `local-agent/.env` từ 5 đến 60 giây. Linux bỏ loopback khi cộng bộ đếm adapter; Windows cộng các adapter được `Get-NetAdapterStatistics` trả về. Adapter ảo/VPN có thể được tính vào.
-7. Web chọn Yêu cầu điều khiển; gõ YES trên console local trong 20 giây. Phiên chuyển pending → active. Core hiện chưa chạy thao tác máy.
+7. Web chọn Yêu cầu điều khiển; gõ YES trên console local trong 20 giây. Phiên chuyển pending → active. Chọn một script đã cấu hình, điền/chọn params theo form, rồi xem output trong thẻ thiết bị. Script chạy bằng quyền của tài khoản Local Runner.
 
 Tạo user thứ hai: sửa SEED_EMAIL/SEED_PASSWORD/SEED_NAME trong backend/.env, chạy seed lần nữa (không thay mật khẩu tài khoản đã có). Owner cấp quyền theo email trên dashboard. Dùng browser/profile khác để kiểm tra tranh chấp phiên; owner có nút lấy quyền.
 

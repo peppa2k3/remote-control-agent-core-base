@@ -1,0 +1,12 @@
+.script-panel{border-top:1px solid #29364c;margin-top:20px;padding-top:12px}
+.script-panel h3{font-size:17px;margin:12px 0}
+.script-note{color:#aabbd2;font-size:13px}
+.script-option{border-top:1px solid #29364c;padding:12px 0}
+.script-option summary{margin-bottom:12px}
+.script-field{display:block;color:#aabbd2;font-size:14px;margin:10px 0}
+.script-field input,.script-field select{margin:6px 0}
+.script-checkbox{display:flex;align-items:center;gap:8px;margin:12px 0;color:#aabbd2}
+.script-checkbox input{display:inline-block;width:auto;margin:0}
+.script-output{margin-top:18px}
+.script-output pre{max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#090e18;border:1px solid #29364c;border-radius:8px;padding:12px;color:#b7e7c9;font:12px/1.5 ui-monospace,Consolas,monospace}
+.script-output pre .stderr{color:#ffb8a8}

@@ -9,7 +9,7 @@ HTTP app cùng origin frontend; mọi mutation của user yêu cầu Origin = PU
 | POST /api/auth/logout | {} | Xóa cookie/session và disconnect socket của session đó |
 | POST /api/pairing | name | Auth user; code + expiresIn:300 |
 | POST /api/agents/enroll | code | Một lần; deviceId + credential; console local cho phép trước khi gọi |
-| GET /api/devices | — | Chỉ máy có quyền; runnerStatus, meshStatus, status CPU/RAM/mạng hoặc null, session không có nonce/browserId |
+| GET /api/devices | — | Chỉ máy có quyền; runnerStatus, meshStatus, status CPU/RAM/mạng, catalog `scripts` đã lọc metadata hoặc rỗng, session không có nonce/browserId |
 | GET /api/devices/:id/members | — | Owner |
 | POST /api/devices/:id/members | email,role viewer/operator | Owner; user phải được seed trước |
 | DELETE /api/devices/:id/members/:userId | — | Owner; revoke lease người bị gỡ |
@@ -23,8 +23,16 @@ Socket.IO path /socket.io. Browser dùng cookie, agent dùng auth {kind:'agent',
 | agent:ready | VPS → runner | deviceId |
 | agent:heartbeat | runner → VPS | {}, ack {ok,at} |
 | agent:status | runner → VPS | `{cpuPercent,ramUsedBytes,ramTotalBytes,networkRxBytesPerSecond,networkTxBytesPerSecond,uptimeSeconds}`; ack `{ok,at}` hoặc `{error,status}`. Runner credential xác định thiết bị; server kiểm tra giá trị và giới hạn tối đa 1 report/giây. |
+| agent:scripts | runner → VPS | Catalog metadata `{id,label,description,parameters}` từ allowlist local; không chứa executable, args, cwd hoặc file path. Backend kiểm tra schema rồi broadcast theo membership. |
+| agent:script-state | runner → VPS | Mảng `jobId` đang chạy sau khi reconnect; backend dùng để xác nhận process cũ đã dừng hoặc gửi lại lệnh stop. |
 | status trong devices:snapshot | VPS → browser | Cùng sáu trường trên + `updatedAt` (epoch ms), hoặc `null` khi runner offline/chưa báo cáo hay báo cáo cũ hơn 3 phút. Status chỉ lưu trong memory, không persist. |
-| session:request | browser → VPS | deviceId, force?; ack pending/sessionId hoặc error/status |
+| script:run | browser → VPS → runner | `{deviceId,sessionId,scriptId,params}`; owner/operator cần active lease chính browser. Ack `{jobId,state}`. Server và runner cùng kiểm tra scriptId/params. |
+| script:started | runner → VPS → browser | `{jobId,sessionId,scriptId,label,startedAt}`; chỉ socket browser đã yêu cầu job nhận được. |
+| script:output | runner → VPS → browser | `{jobId,sessionId,stream:'stdout'|'stderr',text}`; mỗi đoạn tối đa 4KiB, tổng output tối đa 64KiB/job. |
+| script:stopping | VPS → browser | `{jobId,sessionId,reason}`; lease bị thu hồi, backend giữ job đến khi runner xác nhận kết thúc. |
+| script:finished | runner → VPS → browser | `{jobId,sessionId,state,exitCode,signal,durationMs}`; kết quả không được persist. |
+| script:stop | browser → VPS → runner | `{deviceId,sessionId,jobId}`; chỉ người tạo job có active lease được dừng. Job chỉ được giải phóng sau xác nhận kết thúc từ runner. |
+| session:request | browser → VPS | deviceId, force?; ack pending/sessionId hoặc error/status. Nếu job cũ đang dừng, owner cần thử lại sau khi runner xác nhận kết thúc. |
 | session:offer | VPS → runner | sessionId,nonce,userId,userName,owner,expires |
 | session:ack | runner → VPS | sessionId,nonce,accept:boolean |
 | session:active | VPS → browser/runner | sessionId,expires; browser thêm deviceId |
@@ -32,4 +40,4 @@ Socket.IO path /socket.io. Browser dùng cookie, agent dùng auth {kind:'agent',
 | session:release | browser → VPS | deviceId |
 | session:revoked | VPS → browser/runner | sessionId,reason; browser thêm deviceId |
 
-Chưa có jobs API và MeshCentral API bridge. Không gửi credential user/device ở query string.
+Allowlist nằm ở `SCRIPTS_PATH` (mặc định `./data/scripts.json`), cấu hình local theo từng máy; `file` params gửi option ID, runner map sang path local đã cấu hình. Không gửi command string, executable, args, cwd/path hay credential user/device từ frontend hoặc ở query string.

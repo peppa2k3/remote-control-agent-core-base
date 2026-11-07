@@ -1,5 +1,12 @@
 # Validation — 2026-10-14 (Asia/Saigon)
 
+## Script options — 2026-11-07 (Asia/Bangkok)
+- `npm test`: backend 3/3 và Local Runner 8/8 pass. Test loopback chạy Local Runner thật trên Windows với manifest tạm: chọn scenario/profile/file option/`--wait`, nhận argv/output/exit code; không gửi file path qua browser.
+- Unit tests xác nhận catalog không lộ executable/cwd/file path, param sai/extra bị từ chối, dừng process tree trên Windows, timeout hoạt động và output bị chặn ở giới hạn.
+- Backend realtime test xác nhận takeover chờ runner kết thúc script cũ, và sau disconnect server chỉ mở lại lease khi runner báo không còn process.
+- `npm run build`: Vite 8.3.4 thành công (45 modules).
+- Chưa chạy script manifest trên Linux thật hoặc máy/VPS của người dùng. Cần người dùng đổi cwd/executable/options trong `local-agent/data/scripts.json` cho chương trình cài tại từng máy. Script chạy bằng quyền OS của Local Runner; elevated/admin service chưa hỗ trợ.
+
 ## Device status — 2026-11-07 (Asia/Bangkok)
 - `npm test`: backend 3/3 pass; Local Runner status 4/4 pass. Integration test chạy Local Runner thật trên Windows Node 24.16.0, nhận CPU/RAM/network status qua Socket.IO và `Get-NetAdapterStatistics`, đồng thời xác nhận status biến mất khi runner disconnect.
 - Backend realtime test xác nhận status chỉ hiển thị với owner/operator có quyền; outsider không thấy máy, schema sai và report dày hơn 1/giây bị từ chối.

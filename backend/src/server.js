@@ -4,10 +4,58 @@ import {rateLimit} from 'express-rate-limit';
 import {createServer} from 'node:http';
 import {resolve} from 'node:path';
 import {existsSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
 import {Server} from 'socket.io';
 import {Store,hash,token,passwordOK,fail} from './store.js';
 const STATUS_FIELDS=['cpuPercent','ramUsedBytes','ramTotalBytes','networkRxBytesPerSecond','networkTxBytesPerSecond','uptimeSeconds'];
 const STATUS_MAX_AGE_MS=180000;
+const SCRIPT_ID=/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const PARAM_NAME=/^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const MAX_SCRIPT_OUTPUT_BYTES=64*1024;
+function plainObject(v){return !!v&&typeof v==='object'&&!Array.isArray(v)&&Object.getPrototypeOf(v)===Object.prototype}
+function exactKeys(v,allowed){return Object.keys(v).every(k=>allowed.includes(k))}
+function validateScriptCatalog(value){
+ if(!Array.isArray(value)||value.length>50||Buffer.byteLength(JSON.stringify(value))>12*1024)fail(400,'Danh sách script không hợp lệ');
+ const ids=new Set();
+ return value.map(script=>{
+  if(!plainObject(script)||!exactKeys(script,['id','label','description','parameters'])||typeof script.id!=='string'||!SCRIPT_ID.test(script.id)||typeof script.label!=='string'||!script.label.trim()||script.label.length>100||typeof script.description!=='string'||script.description.length>300||!Array.isArray(script.parameters)||script.parameters.length>20||ids.has(script.id))fail(400,'Metadata script không hợp lệ');
+  ids.add(script.id);const names=new Set();
+  const parameters=script.parameters.map(parameter=>{
+   if(!plainObject(parameter)||!exactKeys(parameter,['name','label','type','required','maxLength','options'])||typeof parameter.name!=='string'||!PARAM_NAME.test(parameter.name)||typeof parameter.label!=='string'||!parameter.label.trim()||parameter.label.length>100||!['text','choice','file','boolean'].includes(parameter.type)||typeof parameter.required!=='boolean'||names.has(parameter.name))fail(400,'Schema param script không hợp lệ');
+   names.add(parameter.name);
+   if(parameter.type==='boolean'){
+    if(parameter.required||parameter.options!==undefined||parameter.maxLength!==undefined)fail(400,'Schema boolean không hợp lệ');
+    return {name:parameter.name,label:parameter.label,type:parameter.type,required:false};
+   }
+   if(parameter.type==='text'){
+    if(!Number.isInteger(parameter.maxLength)||parameter.maxLength<1||parameter.maxLength>256||parameter.options!==undefined)fail(400,'Schema text không hợp lệ');
+    return {name:parameter.name,label:parameter.label,type:parameter.type,required:parameter.required,maxLength:parameter.maxLength};
+   }
+   if(!Array.isArray(parameter.options)||parameter.options.length<1||parameter.options.length>50||parameter.maxLength!==undefined)fail(400,'Schema option không hợp lệ');
+   const options=parameter.options.map(option=>{
+    if(!plainObject(option)||!exactKeys(option,['value','label'])||typeof option.value!=='string'||!option.value||option.value.length>128||/[\0\r\n]/.test(option.value)||typeof option.label!=='string'||!option.label.trim()||option.label.length>100)fail(400,'Giá trị option không hợp lệ');
+    return {value:option.value,label:option.label};
+   });
+   if(new Set(options.map(option=>option.value)).size!==options.length)fail(400,'Option script trùng lặp');
+   return {name:parameter.name,label:parameter.label,type:parameter.type,required:parameter.required,options};
+  });
+  return {id:script.id,label:script.label,description:script.description,parameters};
+ });
+}
+function validateScriptParams(script,params){
+ if(!plainObject(params)||Buffer.byteLength(JSON.stringify(params))>8192)fail(400,'Params script không hợp lệ');
+ const schema=new Map(script.parameters.map(parameter=>[parameter.name,parameter]));
+ if(Object.keys(params).some(name=>!schema.has(name)))fail(400,'Params script có trường không được khai báo');
+ for(const parameter of script.parameters){
+  if(!Object.hasOwn(params,parameter.name)){if(parameter.required)fail(400,`Thiếu param ${parameter.name}`);continue}
+  const value=params[parameter.name];
+  if(parameter.type==='boolean'){if(typeof value!=='boolean')fail(400,`Param ${parameter.name} phải là boolean`);continue}
+  if(typeof value!=='string'||!value||value.length>(parameter.maxLength||128)||/[\0\r\n]/.test(value)||value.trim()!==value||(parameter.type==='text'&&value.startsWith('-')))fail(400,`Param ${parameter.name} không hợp lệ`);
+  if(['choice','file'].includes(parameter.type)&&!parameter.options.some(option=>option.value===value))fail(400,`Option ${parameter.name} không hợp lệ`);
+ }
+ return {...params};
+}
+function scriptLease(db,job){const lease=db.lease(job.deviceId);return lease&&lease.state==='active'&&lease.id===job.sessionId&&lease.userId===job.userId&&lease.browserId===job.browserId}
 function validateDeviceStatus(value){
  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==STATUS_FIELDS.length||STATUS_FIELDS.some(k=>!Object.hasOwn(value,k)))fail(400,'Thông số status không hợp lệ');
  const {cpuPercent,ramUsedBytes,ramTotalBytes,networkRxBytesPerSecond,networkTxBytesPerSecond,uptimeSeconds}=value;
@@ -23,15 +71,17 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
  app.use(helmet());app.use(express.json({limit:'16kb'}));
  app.use('/api',rateLimit({windowMs:60000,limit:180}));
  const io=new Server(http,{cors:{origin,credentials:true},maxHttpBufferSize:16384,allowRequest:(req,done)=>done(null,!req.headers.origin||req.headers.origin===origin)});
- const agents=new Map(), viewers=new Map(), deviceStatuses=new Map();
+ const agents=new Map(), viewers=new Map(), deviceStatuses=new Map(), scriptCatalogs=new Map(), scriptJobs=new Map();
  const cookie=req=>{const part=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('rca='));return part?part.slice(4):''};
  function user(req){const s=db.one('SELECT userId,expires FROM logins WHERE hash=?',hash(cookie(req)));if(!s||s.expires<Date.now())fail(401,'Cần đăng nhập');return s.userId}
  const auth=(req,res,next)=>{try{req.userId=user(req);next()}catch(e){next(e)}};
  const owner=(d,u)=>{if(db.role(d,u)!=='owner')fail(403,'Chỉ owner được thao tác')};
  const writeOrigin=(req,res,next)=>{if(['POST','PUT','DELETE','PATCH'].includes(req.method)&&req.headers.origin!==origin)return res.status(403).json({error:'Origin không hợp lệ'});next()};
  function validString(v,max=120){if(typeof v!=='string'||!v.trim()||v.length>max)fail(400,'Dữ liệu không hợp lệ');return v.trim()}
- function stop(d,event){const l=db.release(d,event);if(l){agents.get(d)?.socket.emit('session:revoked',{sessionId:l.id,reason:event});io.to(l.browserId).emit('session:revoked',{deviceId:d,sessionId:l.id,reason:event})}}
- function visible(u){const now=Date.now();return db.all(`SELECT d.id,d.name,d.ownerId,CASE WHEN d.ownerId=? THEN 'owner' ELSE m.role END AS role,l.id AS sessionId,l.userId AS sessionUserId,l.state AS sessionState,l.expires AS sessionExpires FROM devices d LEFT JOIN members m ON m.deviceId=d.id AND m.userId=? LEFT JOIN leases l ON l.deviceId=d.id AND l.expires>? WHERE d.revoked=0 AND (d.ownerId=? OR m.userId IS NOT NULL)`,u,u,now,u).map(d=>{const a=agents.get(d.id),live=!!a&&now-a.seen<25000,status=deviceStatuses.get(d.id);return {id:d.id,name:d.name,ownerId:d.ownerId,role:d.role,runnerStatus:live?'online':'offline',lastSeen:a?.seen??null,meshStatus:'not_integrated',status:live&&status&&now-status.updatedAt<=STATUS_MAX_AGE_MS?status:null,session:d.sessionId?{id:d.sessionId,userId:d.sessionUserId,state:d.sessionState,expires:d.sessionExpires}:null}})}
+ function browserJobEvent(job,event,payload){const browser=io.sockets.sockets.get(job.browserId);if(browser&&viewers.get(job.browserId)===job.userId)browser.emit(event,{deviceId:job.deviceId,jobId:job.id,...payload})}
+ function cancelScriptJob(d,reason,resend=false){const job=scriptJobs.get(d);if(!job)return;const alreadyStopping=job.state==='stopping';if(!alreadyStopping){job.state='stopping';job.stopReason=reason;browserJobEvent(job,'script:stopping',{sessionId:job.sessionId,reason})}if(!alreadyStopping||resend)agents.get(d)?.socket.emit('script:stop',{jobId:job.id,sessionId:job.sessionId,reason:job.stopReason||reason});}
+ function stop(d,event){cancelScriptJob(d,event);const l=db.release(d,event);if(l){agents.get(d)?.socket.emit('session:revoked',{sessionId:l.id,reason:event});io.to(l.browserId).emit('session:revoked',{deviceId:d,sessionId:l.id,reason:event})}}
+ function visible(u){const now=Date.now();return db.all(`SELECT d.id,d.name,d.ownerId,CASE WHEN d.ownerId=? THEN 'owner' ELSE m.role END AS role,l.id AS sessionId,l.userId AS sessionUserId,l.state AS sessionState,l.expires AS sessionExpires FROM devices d LEFT JOIN members m ON m.deviceId=d.id AND m.userId=? LEFT JOIN leases l ON l.deviceId=d.id AND l.expires>? WHERE d.revoked=0 AND (d.ownerId=? OR m.userId IS NOT NULL)`,u,u,now,u).map(d=>{const a=agents.get(d.id),live=!!a&&now-a.seen<25000,status=deviceStatuses.get(d.id);return {id:d.id,name:d.name,ownerId:d.ownerId,role:d.role,runnerStatus:live?'online':'offline',lastSeen:a?.seen??null,meshStatus:'not_integrated',status:live&&status&&now-status.updatedAt<=STATUS_MAX_AGE_MS?status:null,scripts:live?scriptCatalogs.get(d.id)??[]:[],session:d.sessionId?{id:d.sessionId,userId:d.sessionUserId,state:d.sessionState,expires:d.sessionExpires}:null}})}
  function broadcast(){const snapshots=new Map();for(const [id,u]of viewers){const s=io.sockets.sockets.get(id);if(!s)continue;if(!snapshots.has(u))snapshots.set(u,visible(u));s.emit('devices:snapshot',snapshots.get(u))}}
  app.get('/api/health',(req,res)=>res.json({status:'ok',at:Date.now()}));
  app.post('/api/auth/login',writeOrigin,rateLimit({windowMs:60000,limit:10}), (req,res)=>{const email=validString(req.body.email,254).toLowerCase(),pw=validString(req.body.password,256),u=db.one('SELECT * FROM users WHERE email=?',email);if(!passwordOK(pw,u?.password||'invalid'))fail(401,'Thông tin đăng nhập không đúng');const key=token();db.run('INSERT INTO logins VALUES(?,?,?)',hash(key),u.id,Date.now()+8*3600000);res.cookie('rca',key,{httpOnly:true,secure,sameSite:'strict',maxAge:8*3600000,path:'/'});res.json({id:u.id,email:u.email,name:u.name})});
@@ -53,18 +103,79 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
  io.on('connection',socket=>{
   if(socket.data.deviceId){
    const d=socket.data.deviceId;if(agents.has(d)){socket.disconnect(true);return} // no silent replacement of an active agent
-   deviceStatuses.delete(d);agents.set(d,{socket,seen:Date.now()});socket.emit('agent:ready',{deviceId:d});broadcast();
+   deviceStatuses.delete(d);scriptCatalogs.delete(d);agents.set(d,{socket,seen:Date.now()});socket.emit('agent:ready',{deviceId:d});broadcast();
    socket.on('agent:heartbeat',(_,ack)=>{if(agents.get(d)?.socket!==socket)return;agents.get(d).seen=Date.now();ack?.({ok:true,at:Date.now()})});
+   socket.on('agent:scripts',(payload,ack)=>{if(agents.get(d)?.socket!==socket)return;try{scriptCatalogs.set(d,validateScriptCatalog(payload));ack?.({ok:true});broadcast()}catch(e){scriptCatalogs.delete(d);ack?.({error:e.message,status:e.status||400});broadcast()}});
    let lastStatusAt=0;
    socket.on('agent:status',(payload,ack)=>{if(agents.get(d)?.socket!==socket)return;try{const status=validateDeviceStatus(payload),now=Date.now();if(now-lastStatusAt<1000)fail(429,'Status được gửi quá thường xuyên');lastStatusAt=now;deviceStatuses.set(d,{...status,updatedAt:now});ack?.({ok:true,at:now});broadcast()}catch(e){ack?.({error:e.message,status:e.status||400})}});
+   function jobFromAgent(payload,allowStoppingFinish=false){
+    const job=scriptJobs.get(d);if(agents.get(d)?.socket!==socket||!job||job.id!==payload?.jobId||job.sessionId!==payload?.sessionId)return null;
+    if(!scriptLease(db,job)){if(allowStoppingFinish&&job.state==='stopping')return job;cancelScriptJob(d,'lease.invalid');return null}
+    return job;
+   }
+   socket.on('script:started',payload=>{const job=jobFromAgent(payload);if(!job)return;job.state='running';browserJobEvent(job,'script:started',{sessionId:job.sessionId,scriptId:job.scriptId,label:job.label,startedAt:Date.now()})});
+   socket.on('script:output',payload=>{
+    const job=jobFromAgent(payload);if(!job)return;
+    if(!payload||!['stdout','stderr'].includes(payload.stream)||typeof payload.text!=='string'||Buffer.byteLength(payload.text,'utf8')>4096){cancelScriptJob(d,'output.invalid');return}
+    const size=Buffer.byteLength(payload.text,'utf8');if(job.outputBytes+size>MAX_SCRIPT_OUTPUT_BYTES){cancelScriptJob(d,'output.limit');return}
+    job.outputBytes+=size;browserJobEvent(job,'script:output',{sessionId:job.sessionId,stream:payload.stream,text:payload.text});
+   });
+   socket.on('script:finished',payload=>{
+    const job=jobFromAgent(payload,true);if(!job)return;
+    if(!['completed','failed','cancelled','timed_out','output_limit'].includes(payload.state)||!(payload.exitCode===null||Number.isSafeInteger(payload.exitCode))||!Number.isSafeInteger(payload.durationMs)||payload.durationMs<0||payload.durationMs>3600000){cancelScriptJob(d,'result.invalid');return}
+    scriptJobs.delete(d);db.audit(job.userId,d,`script.${payload.state}`);browserJobEvent(job,'script:finished',{sessionId:job.sessionId,state:payload.state,exitCode:payload.exitCode,signal:typeof payload.signal==='string'?payload.signal.slice(0,32):null,durationMs:payload.durationMs,...(typeof payload.reason==='string'?{reason:payload.reason.slice(0,80)}:{}),...(typeof payload.error==='string'?{error:payload.error.slice(0,160)}:{})});broadcast();
+   });
+   socket.on('agent:script-state',(payload,ack)=>{
+    if(agents.get(d)?.socket!==socket)return;
+    if(!Array.isArray(payload)||payload.length>1||payload.some(id=>typeof id!=='string'||id.length>80)){ack?.({error:'Trạng thái script không hợp lệ'});return}
+    const job=scriptJobs.get(d);if(job){if(payload.includes(job.id))cancelScriptJob(d,'agent.reconnected',true);else{scriptJobs.delete(d);db.audit(job.userId,d,'script.cancelled');browserJobEvent(job,'script:finished',{sessionId:job.sessionId,state:'cancelled',exitCode:null,durationMs:0,reason:'runner.confirmed-stopped'})}}
+    ack?.({ok:true});broadcast();
+   });
    socket.on('session:ack',(p,ack)=>{try{if(Date.now()-agents.get(d).seen>=25000)fail(409,'Heartbeat quá hạn');const l=db.ack(d,p?.sessionId,p?.nonce,p?.accept===true);if(l){socket.emit('session:active',{sessionId:l.id,expires:l.expires});io.to(l.browserId).emit('session:active',{deviceId:d,sessionId:l.id,expires:l.expires})}broadcast();ack?.({ok:true})}catch(e){ack?.({error:e.message})}});
-   socket.on('disconnect',()=>{if(agents.get(d)?.socket===socket){agents.delete(d);deviceStatuses.delete(d);stop(d,'agent.disconnected');broadcast()}});
+   socket.on('disconnect',()=>{if(agents.get(d)?.socket===socket){cancelScriptJob(d,'agent.disconnected');agents.delete(d);deviceStatuses.delete(d);scriptCatalogs.delete(d);stop(d,'agent.disconnected');broadcast()}});
   }else{
    let eventWindow=Date.now(),eventCount=0;const u=socket.data.userId;viewers.set(socket.id,u);socket.emit('devices:snapshot',visible(u));
    function handle(event,fn){socket.on(event,(p,ack)=>{try{if(Date.now()-eventWindow>10000){eventWindow=Date.now();eventCount=0}if(++eventCount>100)fail(429,'Quá nhiều yêu cầu realtime');if(user(socket.request)!==u)fail(401,'Phiên đăng nhập hết hạn');ack?.({ok:true,...fn(p||{})})}catch(e){ack?.({error:e.message,status:e.status||400})}})}
-   handle('session:request',p=>{const d=validString(p.deviceId),a=agents.get(d);db.role(d,u);if(!a||Date.now()-a.seen>=25000)fail(409,'Local Runner offline');const {lease:l,old}=db.request(d,u,socket.id,p.force===true);if(old){a.socket.emit('session:revoked',{sessionId:old.id,reason:'owner.takeover'});io.to(old.browserId).emit('session:revoked',{deviceId:d,sessionId:old.id,reason:'owner.takeover'})}const username=db.one('SELECT name FROM users WHERE id=?',u).name;a.socket.emit('session:offer',{sessionId:l.id,nonce:l.nonce,userId:u,userName:username,owner:db.role(d,u)==='owner',expires:l.expires});broadcast();return {sessionId:l.id,state:'pending'}});
+   handle('session:request',p=>{
+    const d=validString(p.deviceId),a=agents.get(d),role=db.role(d,u),current=db.lease(d),job=scriptJobs.get(d);
+    if(!a||Date.now()-a.seen>=25000)fail(409,'Local Runner offline');
+    if(job){
+     if(p.force===true){
+      if(role!=='owner')fail(403,'Chỉ owner được thu hồi');
+      cancelScriptJob(d,'owner.takeover');
+      const old=db.release(d,'owner.takeover');
+      if(old){a.socket.emit('session:revoked',{sessionId:old.id,reason:'owner.takeover'});io.to(old.browserId).emit('session:revoked',{deviceId:d,sessionId:old.id,reason:'owner.takeover'})}
+     }else if(current)fail(409,'Máy đang có phiên điều khiển');
+     else cancelScriptJob(d,'lease.invalid');
+     broadcast();fail(409,'Script đang dừng; thử lại sau khi Local Runner xác nhận đã dừng');
+    }
+    const {lease:l,old}=db.request(d,u,socket.id,p.force===true);
+    if(old){a.socket.emit('session:revoked',{sessionId:old.id,reason:'owner.takeover'});io.to(old.browserId).emit('session:revoked',{deviceId:d,sessionId:old.id,reason:'owner.takeover'})}
+    const username=db.one('SELECT name FROM users WHERE id=?',u).name;a.socket.emit('session:offer',{sessionId:l.id,nonce:l.nonce,userId:u,userName:username,owner:role==='owner',expires:l.expires});broadcast();return {sessionId:l.id,state:'pending'}
+   });
    handle('session:renew',p=>{const l=db.renew(p.deviceId,u,socket.id,p.sessionId);agents.get(p.deviceId)?.socket.emit('session:active',{sessionId:l.id,expires:l.expires});return {expires:l.expires}});
    handle('session:release',p=>{const l=db.lease(p.deviceId);db.role(p.deviceId,u);if(l&&(l.browserId!==socket.id||l.userId!==u))fail(403,'Không sở hữu phiên này');stop(p.deviceId,'lease.released');broadcast();return {}});
+   handle('script:run',p=>{
+    if(!plainObject(p)||!exactKeys(p,['deviceId','sessionId','scriptId','params']))fail(400,'Yêu cầu chạy script không hợp lệ');
+    const d=validString(p.deviceId),sessionId=validString(p.sessionId,80),scriptId=validString(p.scriptId,64),role=db.role(d,u),a=agents.get(d),lease=db.lease(d);
+    if(role==='viewer')fail(403,'Viewer không được chạy script');
+    if(!a||Date.now()-a.seen>=25000)fail(409,'Local Runner offline');
+    if(!lease||lease.state!=='active'||lease.id!==sessionId||lease.userId!==u||lease.browserId!==socket.id)fail(403,'Cần active lease của phiên này');
+    const script=scriptCatalogs.get(d)?.find(item=>item.id===scriptId);if(!script)fail(404,'Script chưa được cấu hình trên máy này');
+    const params=validateScriptParams(script,p.params);if(scriptJobs.has(d))fail(409,'Thiết bị đang chạy một script khác');
+    const job={id:randomUUID(),deviceId:d,userId:u,browserId:socket.id,sessionId,scriptId,label:script.label,outputBytes:0,state:'starting'};scriptJobs.set(d,job);db.audit(u,d,'script.requested');
+    a.socket.timeout(5000).emit('script:run',{jobId:job.id,sessionId,scriptId,params},(err,result)=>{if((err||result?.error)&&scriptJobs.get(d)?.id===job.id)cancelScriptJob(d,'runner.no_ack')});
+    broadcast();return {jobId:job.id,state:'starting'};
+   });
+   handle('script:stop',p=>{
+    if(!plainObject(p)||!exactKeys(p,['deviceId','sessionId','jobId']))fail(400,'Yêu cầu dừng script không hợp lệ');
+    const d=validString(p.deviceId),sessionId=validString(p.sessionId,80),jobId=validString(p.jobId,80),role=db.role(d,u),lease=db.lease(d),job=scriptJobs.get(d),a=agents.get(d);
+    if(role==='viewer')fail(403,'Viewer không được dừng script');
+    if(!lease||lease.state!=='active'||lease.id!==sessionId||lease.userId!==u||lease.browserId!==socket.id)fail(403,'Cần active lease của phiên này');
+    if(!job||job.id!==jobId||job.userId!==u||job.browserId!==socket.id||job.sessionId!==sessionId)fail(404,'Không tìm thấy script đang chạy');
+    if(!a||Date.now()-a.seen>=25000)fail(409,'Local Runner offline');
+    a.socket.emit('script:stop',{jobId,sessionId,reason:'cancelled'});return {jobId,state:'stopping'};
+   });
    socket.on('disconnect',()=>{viewers.delete(socket.id);for(const l of db.all('SELECT deviceId FROM leases WHERE browserId=?',socket.id))stop(l.deviceId,'browser.disconnected');broadcast()});
   }
  });
