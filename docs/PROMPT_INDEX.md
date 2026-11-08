@@ -23,3 +23,4 @@ Thay tên file cho bước tiếp theo. Nếu thiếu domain/IP/key thật, AI h
 |---|---|---|
 | Completed | [002-device-status.md](prompts/completed/002-device-status.md) | Báo CPU/RAM/network từ Local Runner và hiển thị theo quyền trên dashboard |
 | Planned | [003-send-commandline.md](prompts/planned/003-send-commandline.md) | Kích hoạt script đã allowlist trên máy local, stream log realtime |
+| Planned | [004- Remote Terminal – CMD.md](<prompts/planned/004- Remote Terminal – CMD.md>) | Terminal tương tác CMD/PowerShell trên Windows, ràng buộc active lease |

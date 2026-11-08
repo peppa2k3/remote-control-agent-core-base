@@ -4,8 +4,11 @@ import {dirname,resolve} from 'node:path';
 import {createInterface} from 'node:readline/promises';
 import {createStatusSampler,parseStatusIntervalSeconds} from './status.js';
 import {createScriptRunner,loadScriptRegistry,publicScriptCatalog} from './script-runner.js';
+import {createTerminalManager} from './terminal.js';
 const url=process.env.SERVER_URL||'http://localhost:4000';
 const statusIntervalSeconds=parseStatusIntervalSeconds();
+function terminalSeconds(name,fallback,min,max){const raw=process.env[name];if(raw===undefined||raw==='')return fallback;const value=Number(raw);if(!Number.isInteger(value)||value<min||value>max)throw Error(`${name} doit être entre ${min} et ${max} secondes`);return value}
+const terminalMaxSeconds=terminalSeconds('TERMINAL_MAX_SECONDS',1800,60,3600),terminalIdleSeconds=terminalSeconds('TERMINAL_IDLE_SECONDS',600,60,1800);
 const endpoint=new URL(url);if(endpoint.protocol!=='https:'&&!['localhost','127.0.0.1','[::1]'].includes(endpoint.hostname)&&process.env.ALLOW_INSECURE_REMOTE!=='true')throw Error('Kết nối VPS bắt buộc HTTPS');
 const file=resolve(process.env.CREDENTIALS_PATH||'./data/credentials.json');
 const scriptsFile=resolve(process.env.SCRIPTS_PATH||'./data/scripts.json');
@@ -26,6 +29,12 @@ const scriptRunner=createScriptRunner({registry:scriptRegistry,
  onOutput:payload=>socket.emit('script:output',payload),
  onFinished:payload=>socket.emit('script:finished',payload),
 });
+const terminalManager=createTerminalManager({maxSeconds:terminalMaxSeconds,idleSeconds:terminalIdleSeconds,
+ onOpened:payload=>socket.emit('terminal:opened',payload),
+ onOutput:payload=>socket.emit('terminal:output',payload),
+ onExited:payload=>socket.emit('terminal:exited',payload),
+ onError:payload=>socket.emit('terminal:error',payload),
+});
 async function reportStatus(){
  if(!socket.connected||statusBusy)return;
  statusBusy=true;
@@ -36,9 +45,9 @@ async function reportStatus(){
  }catch{if(!statusErrorLogged)console.error('Không đọc được status CPU/RAM/mạng trên máy này');statusErrorLogged=true}
  finally{statusBusy=false}
 }
-socket.on('connect',async()=>{console.log('Đã kết nối VPS');await disconnectCleanup;if(!socket.connected)return;socket.emit('agent:scripts',scriptCatalog,result=>{if(result?.error){console.error('Không gửi được danh sách script đã cấu hình');return}socket.emit('agent:script-state',scriptRunner.activeJobs.map(job=>job.jobId),stateResult=>{if(stateResult?.error)console.error('Không đồng bộ được trạng thái script')})});statusSampler.reset();void reportStatus();statusTimer=setInterval(()=>void reportStatus(),statusIntervalSeconds*1000)});
+socket.on('connect',async()=>{console.log('Đã kết nối VPS');await disconnectCleanup;if(!socket.connected)return;socket.emit('agent:terminal-capabilities',{platform:process.platform,shells:process.platform==='win32'?['cmd','powershell']:[]});socket.emit('agent:scripts',scriptCatalog,result=>{if(result?.error){console.error('Không gửi được danh sách script đã cấu hình');return}socket.emit('agent:script-state',scriptRunner.activeJobs.map(job=>job.jobId),stateResult=>{if(stateResult?.error)console.error('Không đồng bộ được trạng thái script');socket.emit('agent:terminal-state',terminalManager.activeSessions,state=>{if(state?.error)console.error('Không đồng bộ được trạng thái Terminal')})})});statusSampler.reset();void reportStatus();statusTimer=setInterval(()=>void reportStatus(),statusIntervalSeconds*1000)});
 socket.on('connect_error',e=>console.error('Lỗi kết nối:',e.message));
-socket.on('disconnect',()=>{disconnectCleanup=scriptRunner.cancelAll('agent.disconnected');if(statusTimer)clearInterval(statusTimer);statusTimer=null;statusSampler.reset();active=null;offered=null;promptAbort?.abort();console.log('Mất kết nối; phiên điều khiển đã hủy')});
+socket.on('disconnect',()=>{disconnectCleanup=Promise.all([scriptRunner.cancelAll('agent.disconnected'),terminalManager.closeAll('agent.disconnected')]);if(statusTimer)clearInterval(statusTimer);statusTimer=null;statusSampler.reset();active=null;offered=null;promptAbort?.abort();console.log('Mất kết nối; phiên điều khiển đã hủy')});
 socket.on('session:offer',async p=>{
  promptAbort?.abort();offered=p.sessionId;let accept=process.env.AUTO_APPROVE_SESSIONS==='true';
  if(!accept){const controller=new AbortController();promptAbort=controller;const timer=setTimeout(()=>controller.abort(),Math.max(1,p.expires-Date.now()));try{accept=(await rl.question(`\n${p.userName}${p.owner?' [OWNER]':''} xin điều khiển. Gõ YES để chấp nhận: `,{signal:controller.signal}))==='YES'}catch{accept=false}finally{clearTimeout(timer);if(promptAbort===controller)promptAbort=null}}
@@ -46,7 +55,11 @@ socket.on('session:offer',async p=>{
  socket.emit('session:ack',{sessionId:p.sessionId,nonce:p.nonce,accept},r=>{if(r?.error)console.error(r.error)});
 });
 socket.on('session:active',p=>{active=p;offered=null;console.log('Phiên được cấp hoặc gia hạn:',p.sessionId)});
-socket.on('session:revoked',p=>{void scriptRunner.cancelSession(p.sessionId,'lease.revoked');if(active?.sessionId===p.sessionId)active=null;if(offered===p.sessionId){offered=null;promptAbort?.abort()}console.log('Phiên bị thu hồi:',p.reason)});
+socket.on('session:revoked',p=>{void scriptRunner.cancelSession(p.sessionId,'lease.revoked');for(const terminal of terminalManager.activeSessions)if(terminal.sessionId===p.sessionId)terminalManager.close(terminal.terminalId,p.sessionId,'lease.revoked');if(active?.sessionId===p.sessionId)active=null;if(offered===p.sessionId){offered=null;promptAbort?.abort()}console.log('Phiên bị thu hồi:',p.reason)});
+socket.on('terminal:open',(p,ack)=>{try{if(process.platform!=='win32'||!p||active?.sessionId!==p.sessionId||Date.now()>=active.expires)throw Error('Lease không còn hiệu lực');const result=terminalManager.open(p);ack?.({ok:true,...result})}catch(e){ack?.({error:e.message||'Không thể mở Terminal'})}});
+socket.on('terminal:input',(p,ack)=>{try{if(!p||active?.sessionId!==p.sessionId||Date.now()>=active.expires)throw Error('Lease không còn hiệu lực');ack?.(terminalManager.input(p))}catch(e){ack?.({error:e.message||'Không thể gửi input Terminal'})}});
+socket.on('terminal:resize',(p,ack)=>{try{if(!p||active?.sessionId!==p.sessionId||Date.now()>=active.expires)throw Error('Lease không còn hiệu lực');ack?.(terminalManager.resize(p))}catch(e){ack?.({error:e.message||'Không thể resize Terminal'})}});
+socket.on('terminal:close',(p,ack)=>{const closed=!!p&&terminalManager.close(p.terminalId,p.sessionId,'user.closed');ack?.({ok:true,closing:closed})});
 socket.on('script:run',async(p,ack)=>{
  try{
   if(!p||typeof p!=='object'||active?.sessionId!==p.sessionId||Date.now()>=active.expires)throw Error('Lease không còn hiệu lực');
@@ -58,6 +71,6 @@ socket.on('script:stop',(p,ack)=>{
  const exists=scriptRunner.activeJobs.some(job=>job.jobId===p.jobId);if(exists)scriptRunner.cancel(p.jobId,p.reason||'cancelled');else socket.emit('script:finished',{jobId:p.jobId,sessionId:p.sessionId,state:'cancelled',exitCode:null,durationMs:0,reason:'runner.confirmed-stopped'});
  ack?.({ok:true,stopping:exists});
 });
-const beat=setInterval(()=>{if(socket.connected)socket.emit('agent:heartbeat',{},()=>{});if(active&&Date.now()>=active.expires){void scriptRunner.cancelSession(active.sessionId,'lease.expired');active=null;console.log('Lease hết hạn tại local')}},5000);
-for(const sig of ['SIGINT','SIGTERM'])process.on(sig,async()=>{clearInterval(beat);if(statusTimer)clearInterval(statusTimer);await scriptRunner.cancelAll('agent.shutdown');socket.disconnect();rl.close();process.exit(0)});
+const beat=setInterval(()=>{if(socket.connected)socket.emit('agent:heartbeat',{},()=>{});if(active&&Date.now()>=active.expires){void scriptRunner.cancelSession(active.sessionId,'lease.expired');for(const terminal of terminalManager.activeSessions)if(terminal.sessionId===active.sessionId)terminalManager.close(terminal.terminalId,terminal.sessionId,'lease.expired');active=null;console.log('Lease hết hạn tại local')}},5000);
+for(const sig of ['SIGINT','SIGTERM'])process.on(sig,async()=>{clearInterval(beat);if(statusTimer)clearInterval(statusTimer);await Promise.all([scriptRunner.cancelAll('agent.shutdown'),terminalManager.closeAll('agent.shutdown')]);socket.disconnect();rl.close();process.exit(0)});
 // Local scripts use an explicit allowlist; arbitrary shell and remote desktop relay remain unavailable here.

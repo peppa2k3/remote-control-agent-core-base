@@ -1,5 +1,12 @@
 # Validation — 2026-10-14 (Asia/Saigon)
 
+## Remote Terminal CMD/PowerShell — 2026-11-08 (Asia/Bangkok)
+- `npm test`: backend 4/4 pass; Local Runner 11/11 pass.
+- Windows PTY integration chạy trên Windows 10.0.19045, Node v24.16.0. Đã mở CMD/PowerShell, chạy `hostname`, `ipconfig`, `ping -t 127.0.0.1`, gửi Ctrl+C và xác nhận `ping.exe` không còn sau khi đóng terminal.
+- Backend realtime test xác nhận viewer bị chặn, terminal bind vào đúng user/browser/device/session lease, chỉ browser mở nhận output, một terminal mỗi máy, giới hạn input/output và dừng terminal khi lease release. Audit chỉ có sự kiện metadata.
+- `npm run build`: Vite 8.3.4 thành công; xterm tải tách riêng khi người dùng mở Remote Terminal, initial JS 277KiB.
+- Chưa kiểm tra giao diện qua browser/VPS/domain, clipboard trong browser HTTPS thật, Windows Server/Windows build khác, hoặc runner đăng nhập bằng tài khoản không phải Administrator. Prompt 004 còn Planned tới khi hoàn tất các kiểm tra máy thật này.
+
 ## Script options — 2026-11-07 (Asia/Bangkok)
 - `npm test`: backend 3/3 và Local Runner 8/8 pass. Test loopback chạy Local Runner thật trên Windows với manifest tạm: chọn scenario/profile/file option/`--wait`, nhận argv/output/exit code; không gửi file path qua browser.
 - Unit tests xác nhận catalog không lộ executable/cwd/file path, param sai/extra bị từ chối, dừng process tree trên Windows, timeout hoạt động và output bị chặn ở giới hạn.

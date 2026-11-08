@@ -4,6 +4,7 @@
 | 001 Core | Source và test loopback đạt trên Windows Node 24; cần nghiệm thu VPS/local thật | Auth, pairing, realtime runner, RBAC, lease, ACK, owner takeover; sửa test runner Windows và trạng thái FE khi mất VPS |
 | Device status (`002-device-status`) | Source + unit/integration tests + build; chưa nghiệm thu trên máy nhà thật | Runner gửi CPU/RAM/network theo chu kỳ cấu hình, backend kiểm tra/giới hạn, dashboard hiển thị cho user có quyền; status chỉ trong memory |
 | Script options (`003-send-commandline`, bổ sung) | Source + tests + build trên Windows; cần kiểm tra máy local Linux/VPS thật | Dashboard chọn script allowlist, nhập schema params, xem log; runner map file option ID sang path local và spawn không qua shell. Takeover bị chặn đến khi runner xác nhận script cũ đã dừng. |
+| Remote Terminal (`004- Remote Terminal – CMD`) | Source + realtime tests + Windows PTY test; cần review browser và VPS/máy nhà thật | Windows CMD/PowerShell qua node-pty, xterm.js, một terminal/device, lease-bound input/output, cleanup và audit metadata. Commands/output không lưu. |
 | 002 Quản lý user/device | Planned | Invite, MFA, rotation, lastSeen persistent, migrations |
 | 003 MeshCentral adapter | Planned | Mapping, realtime Mesh presence, enforce remote desktop lease |
 | 004 Script runner nâng cao | Planned | Bổ sung schema version, fencing token và bảo đảm hủy process tree trên các hệ điều hành mục tiêu |
