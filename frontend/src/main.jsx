@@ -1,7 +1,8 @@
-import React,{lazy,Suspense,useEffect,useRef,useState} from 'react';
+import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {io} from 'socket.io-client';
 import './style.css';
+import './device-status.css';
 import './script-console.css';
 import './remote-terminal.css';
 const RemoteTerminal=lazy(()=>import('./RemoteTerminal.jsx'));
@@ -24,17 +25,41 @@ function formatUptime(value){
  return [days&&`${days} ngày`,hours&&`${hours} giờ`,`${minutes} phút`].filter(Boolean).join(' ');
 }
 
+function usageState(percent){
+ if(percent>=85)return {tone:'critical',label:'Cao'};
+ if(percent>=60)return {tone:'warning',label:'Trung bình'};
+ return {tone:'normal',label:'Bình thường'};
+}
+
+function networkState(bytesPerSecond){
+ if(bytesPerSecond>20*1024*1024)return {tone:'critical',label:'Tải cao'};
+ if(bytesPerSecond>=1024*1024)return {tone:'stable',label:'Đang ổn'};
+ return {tone:'normal',label:'Bình thường'};
+}
+
+function StatusMetric({value,state,progress}){
+ return <div className="status-metric">
+  <div className="status-metric__top"><strong className="status-metric__value">{value}</strong><span className={`status-pill status-pill--${state.tone}`}>{state.label}</span></div>
+  {Number.isFinite(progress)&&<div className={`status-bar status-bar--${state.tone}`} role="progressbar" aria-label="Mức sử dụng" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(progress)}><span style={{width:`${Math.max(0,Math.min(100,progress))}%`}}/></div>}
+ </div>;
+}
+
 function StatusTable({device}){
  const status=device.status;
+ const ramPercent=status?status.ramUsedBytes/status.ramTotalBytes*100:0;
+ const cpuState=status?usageState(status.cpuPercent):{tone:'muted',label:'Chưa có dữ liệu'};
+ const ramState=status?usageState(ramPercent):{tone:'muted',label:'Chưa có dữ liệu'};
+ const rxState=status?networkState(status.networkRxBytesPerSecond):{tone:'muted',label:'Chưa có dữ liệu'};
+ const txState=status?networkState(status.networkTxBytesPerSecond):{tone:'muted',label:'Chưa có dữ liệu'};
  const rows=[
-  ['CPU',status?`${status.cpuPercent.toLocaleString('vi-VN',{maximumFractionDigits:1})}%`:'—'],
-  ['RAM',status?`${formatBytes(status.ramUsedBytes)} / ${formatBytes(status.ramTotalBytes)} (${(status.ramUsedBytes/status.ramTotalBytes*100).toLocaleString('vi-VN',{maximumFractionDigits:1})}%)`:'—'],
-  ['Mạng tải xuống',status?`${formatBytes(status.networkRxBytesPerSecond)}/s`:'—'],
-  ['Mạng tải lên',status?`${formatBytes(status.networkTxBytesPerSecond)}/s`:'—'],
+  ['CPU',status?<StatusMetric value={`${status.cpuPercent.toLocaleString('vi-VN',{maximumFractionDigits:1})}%`} state={cpuState} progress={status.cpuPercent}/>:<StatusMetric value="—" state={cpuState}/>],
+  ['RAM',status?<StatusMetric value={`${formatBytes(status.ramUsedBytes)} / ${formatBytes(status.ramTotalBytes)} (${ramPercent.toLocaleString('vi-VN',{maximumFractionDigits:1})}%)`} state={ramState} progress={ramPercent}/>:<StatusMetric value="—" state={ramState}/>],
+  ['Internet tải xuống',status?<StatusMetric value={`${formatBytes(status.networkRxBytesPerSecond)}/s`} state={rxState}/>:<StatusMetric value="—" state={rxState}/>],
+  ['Internet tải lên',status?<StatusMetric value={`${formatBytes(status.networkTxBytesPerSecond)}/s`} state={txState}/>:<StatusMetric value="—" state={txState}/>],
   ['Uptime',status?formatUptime(status.uptimeSeconds):'—'],
  ];
  const note=status?`Cập nhật lúc ${new Date(status.updatedAt).toLocaleTimeString('vi-VN')}`:device.runnerStatus==='online'?'Đang chờ báo cáo đầu tiên từ Local Runner.':'Không có số liệu mới; Local Runner đang offline.';
- return <div className="status-wrap"><table className="status-table"><caption>Trạng thái thiết bị</caption><thead><tr><th scope="col">Thông số</th><th scope="col">Giá trị</th></tr></thead><tbody>{rows.map(([label,result])=><tr key={label}><th scope="row">{label}</th><td>{result}</td></tr>)}</tbody></table><small className="status-note">{note}</small></div>;
+ return <div className="status-wrap"><table className="status-table"><caption>Trạng thái thiết bị</caption><thead><tr><th scope="col">Thông số</th><th scope="col">Giá trị</th></tr></thead><tbody>{rows.map(([label,result])=><tr key={label}><th scope="row">{label}</th><td>{result}</td></tr>)}</tbody></table><small className="status-note">{note} Ngưỡng mạng: dưới 1 MB/s bình thường · 1–20 MB/s đang ổn · trên 20 MB/s tải cao.</small></div>;
 }
 
 function ScriptParameter({parameter}){
@@ -73,8 +98,9 @@ function ScriptPanel({device,mine,connected,scriptJobs,event,setScriptJobs}){
 }
 
 function RemoteTerminalLauncher(props){
- const [show,setShow]=useState(false);if(!show)return <div className="remote-terminal-launcher"><button className="secondary" disabled={!props.device.terminalSupported} onClick={()=>setShow(true)}>Remote Terminal</button></div>;
- return <Suspense fallback={<p className="terminal-note">Đang tải giao diện terminal…</p>}><RemoteTerminal {...props}/></Suspense>;
+ const [show,setShow]=useState(false),dismiss=useCallback(()=>setShow(false),[]),session=props.terminalSessions[props.device.id];
+ if(!show)return <div className="remote-terminal-launcher"><button className="secondary" disabled={!props.device.terminalSupported} aria-haspopup="dialog" onClick={()=>setShow(true)}>{session?.terminalId?'Mở lại cửa sổ Terminal':'Mở cửa sổ Terminal'}</button></div>;
+ return <Suspense fallback={<p className="terminal-note">Đang tải giao diện terminal…</p>}><RemoteTerminal {...props} onDismiss={dismiss}/></Suspense>;
 }
 
 function DeviceCard({device,user,connected,mine,event,attempt,setMessage,scriptJobs,setScriptJobs,terminalSessions,setTerminalSessions,terminalTargets}){

@@ -1,0 +1,18 @@
+.status-table th,.status-table td{vertical-align:middle}
+.status-table td{width:68%;text-align:left}
+.status-metric{display:grid;gap:7px;max-width:560px}
+.status-metric__top{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left}
+.status-metric__value{font-variant-numeric:tabular-nums;color:#dbe7f8;font-weight:600}
+.status-pill{display:inline-flex;align-items:center;flex:none;padding:4px 9px;border-radius:999px;font-size:11px;line-height:1.2;font-weight:700;white-space:nowrap}
+.status-pill--normal{color:#8ce4b4;background:#193d35}
+.status-pill--stable{color:#86dcfa;background:#17394b}
+.status-pill--warning{color:#ffd184;background:#44351e}
+.status-pill--critical{color:#ff94a2;background:#4b232d}
+.status-pill--muted{color:#aabbd2;background:#29364c}
+.status-bar{height:7px;overflow:hidden;border-radius:999px;background:#29364c}
+.status-bar span{display:block;height:100%;border-radius:inherit;transition:width .25s ease}
+.status-bar--normal span{background:#50d89a}
+.status-bar--warning span{background:#f1b84d}
+.status-bar--critical span{background:#ef667b}
+.status-note{line-height:1.5}
+@media(max-width:650px){.status-table{font-size:13px}.status-table th:first-child{width:32%}.status-table td{width:68%}.status-metric__top{align-items:flex-start;flex-direction:column;gap:5px}}
