@@ -20,7 +20,7 @@ sudo systemctl enable --now rca-local
 sudo systemctl status rca-local
 journalctl -u rca-local -n 50
 ```
-Mẫu chưa được chạy systemd thật ở môi trường này. Chỉ chạy core heartbeat/handshake; runner scripts desktop sau này cần môi trường DISPLAY/session phù hợp.
+Mẫu chưa được chạy systemd thật ở môi trường này. Local Runner gửi heartbeat/status và xử lý handshake lease; Remote Terminal hiện chỉ hỗ trợ Windows.
 
 ## Lưu ý kết nối
 Sleep/hibernate hoặc mất điện = offline. Wake-on-LAN qua Internet không tự có; không đưa vào core. Khi rớt mạng, runner reconnect backoff, socket mới handshake lại. Secret bị thu hồi không tự pair lại; owner phải tạo mã mới và local xác nhận lại.

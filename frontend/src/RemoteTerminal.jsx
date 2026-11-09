@@ -8,12 +8,12 @@ import '@xterm/xterm/css/xterm.css';
 const MAX_CHUNK_BYTES=4096;
 function splitInput(value){const chunks=[];let chunk='',bytes=0;for(const character of value){const size=new TextEncoder().encode(character).length;if(bytes+size>MAX_CHUNK_BYTES){chunks.push(chunk);chunk='';bytes=0}chunk+=character;bytes+=size}if(chunk)chunks.push(chunk);return chunks}
 
-export default function RemoteTerminal({device,sessionId,connected,canControl,blocked,event,terminalSessions,setTerminalSessions,targets,onDismiss}){
+export default function RemoteTerminal({device,sessionId,connected,canControl,event,terminalSessions,setTerminalSessions,targets,onDismiss}){
  const [shell,setShell]=useState(device.terminalShells?.[0]||'cmd');
  const [hasSelection,setHasSelection]=useState(false),[clipboardMessage,setClipboardMessage]=useState('');
  const entry=terminalSessions[device.id],container=useRef(null),terminalRef=useRef(null),timer=useRef(null),inputBuffer=useRef(''),sentSize=useRef({cols:0,rows:0});
  const ownLease=canControl&&!!sessionId&&device.session?.id===sessionId&&device.session.state==='active';
- const canOpen=connected&&device.runnerStatus==='online'&&device.terminalSupported&&ownLease&&!blocked&&!device.terminal&&!entry;
+ const canOpen=connected&&device.runnerStatus==='online'&&device.terminalSupported&&ownLease&&!device.terminal&&!entry;
 
  useEffect(()=>{
   const previousOverflow=document.body.style.overflow;
@@ -59,7 +59,6 @@ export default function RemoteTerminal({device,sessionId,connected,canControl,bl
    {entry?.terminalId&&<><div className="terminal-controls"><span>{entry.shell==='powershell'?'PowerShell':'CMD'} · {entry.state==='connected'?'đã kết nối':entry.state}</span><div className="terminal-actions"><button className="secondary" disabled={!hasSelection} onClick={copySelection}>Sao chép</button><button className="secondary" onClick={pasteClipboard}>Dán</button><button className="warn" disabled={entry.state==='closing'} onClick={close}>Đóng Terminal</button></div></div>{clipboardMessage&&<small className="terminal-note" role="status">{clipboardMessage}</small>}<div className="terminal-screen" ref={container} role="application" aria-label="Remote terminal; nhấn để nhập lệnh" onClick={()=>terminalRef.current?.focus()}/></>}
    {!device.terminalSupported&&<p className="terminal-note">Terminal chỉ có trên Windows Local Agent.</p>}
    {device.terminalSupported&&!ownLease&&device.role!=='viewer'&&<p className="terminal-note">Yêu cầu và xác nhận phiên điều khiển trước khi mở Terminal.</p>}
-   {blocked&&<p className="terminal-note">Dừng script đang chạy trước khi mở Terminal.</p>}
    {entry?.terminalId&&<small className="terminal-footer-note">Thoát popup chỉ ẩn cửa sổ; phiên tiếp tục chạy. Chọn “Đóng Terminal” để kết thúc phiên.</small>}
   </section>
  </div>,document.body);

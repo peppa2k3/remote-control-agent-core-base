@@ -1,12 +1,11 @@
 # Các prompt chạy tuần tự
-Mở repo bằng VS Code/Codex; gọi từng prompt, xem kết quả/test/commit rồi mới gọi prompt sau. Không dán cả 8 prompt cùng lượt.
+Mở repo bằng VS Code/Codex; gọi prompt phù hợp, xem kết quả/test/commit rồi mới tiếp tục. Không dán nhiều prompt cùng lượt.
 
 | Thứ tự | File trong docs/prompts/planned | Mục tiêu |
 |---|---|---|
 | 001 | 001-core-base.md | Hoàn thiện và xác minh kết nối FE ↔ VPS ↔ local |
 | 002 | 002-device-user-management.md | Quản lý nhiều user/máy và vòng đời credential |
 | 003 | 003-meshcentral-integration.md | Mesh presence, mapping, remote desktop policy |
-| 004 | 004-local-script-runner.md | Chạy kịch bản có sẵn, kiểm tra params và quyền |
 | 005 | 005-job-workflow.md | Điều phối jobs, logs, cancel/retry/idempotency |
 | 006 | 006-dashboard.md | Dashboard sử dụng hằng ngày |
 | 007 | 007-production-cicd.md | Production hardening/backup/CI-CD |
@@ -22,5 +21,5 @@ Thay tên file cho bước tiếp theo. Nếu thiếu domain/IP/key thật, AI h
 | Trạng thái | File | Mục tiêu |
 |---|---|---|
 | Completed | [002-device-status.md](prompts/completed/002-device-status.md) | Báo CPU/RAM/network từ Local Runner và hiển thị theo quyền trên dashboard |
-| Planned | [003-send-commandline.md](prompts/planned/003-send-commandline.md) | Kích hoạt script đã allowlist trên máy local, stream log realtime |
+| Removed | [003-send-commandline.md](prompts/planned/003-send-commandline.md) | Không dùng trong core theo yêu cầu ngày 2026-11-09 |
 | Planned | [004- Remote Terminal – CMD.md](<prompts/planned/004- Remote Terminal – CMD.md>) | Terminal tương tác CMD/PowerShell trên Windows, ràng buộc active lease |

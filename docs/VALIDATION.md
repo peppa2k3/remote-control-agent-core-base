@@ -7,12 +7,11 @@
 - `npm run build`: Vite 8.3.4 thành công; xterm tải tách riêng khi người dùng mở Remote Terminal, initial JS 277KiB.
 - Chưa kiểm tra giao diện qua browser/VPS/domain, clipboard trong browser HTTPS thật, Windows Server/Windows build khác, hoặc runner đăng nhập bằng tài khoản không phải Administrator. Prompt 004 còn Planned tới khi hoàn tất các kiểm tra máy thật này.
 
-## Script options — 2026-11-07 (Asia/Bangkok)
-- `npm test`: backend 3/3 và Local Runner 8/8 pass. Test loopback chạy Local Runner thật trên Windows với manifest tạm: chọn scenario/profile/file option/`--wait`, nhận argv/output/exit code; không gửi file path qua browser.
-- Unit tests xác nhận catalog không lộ executable/cwd/file path, param sai/extra bị từ chối, dừng process tree trên Windows, timeout hoạt động và output bị chặn ở giới hạn.
-- Backend realtime test xác nhận takeover chờ runner kết thúc script cũ, và sau disconnect server chỉ mở lại lease khi runner báo không còn process.
-- `npm run build`: Vite 8.3.4 thành công (45 modules).
-- Chưa chạy script manifest trên Linux thật hoặc máy/VPS của người dùng. Cần người dùng đổi cwd/executable/options trong `local-agent/data/scripts.json` cho chương trình cài tại từng máy. Script chạy bằng quyền OS của Local Runner; elevated/admin service chưa hỗ trợ.
+## Loại bỏ script allowlist — 2026-11-09 (Asia/Bangkok)
+- Đã gỡ màn hình “Kịch bản trên máy”, protocol script, executor Local Runner, manifest và cấu hình `SCRIPTS_PATH`.
+- Remote Terminal/PTY vẫn được giữ; các test backend và Windows PTY vẫn chạy trong bộ kiểm tra.
+- `npm test`: backend 4/4 pass; Local Runner 7/7 pass. Integration test xác nhận runner khởi động không cần cấu hình script và snapshot không có catalog `scripts`.
+- `npm run build`: Vite 8.3.4 thành công, 52 modules.
 
 ## Device status — 2026-11-07 (Asia/Bangkok)
 - `npm test`: backend 3/3 pass; Local Runner status 4/4 pass. Integration test chạy Local Runner thật trên Windows Node 24.16.0, nhận CPU/RAM/network status qua Socket.IO và `Get-NetAdapterStatistics`, đồng thời xác nhận status biến mất khi runner disconnect.
