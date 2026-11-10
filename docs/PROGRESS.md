@@ -1,4 +1,15 @@
 # Tiến độ
+
+2026-11-10: Bổ sung workflow engine bridge qua HTTP loopback và Socket.IO active
+lease. Backend kiểm tra RBAC/user/browser/device/session, local kiểm tra lease,
+frontend có panel catalog/profile/biến/run/status/history/stop. Generic script
+runner cũ không được khôi phục. `npm test` repo và local-agent đạt, frontend
+`npm run build` đạt; UI fixture Chrome desktop/mobile chạy login → lease →
+catalog → biến → run → stop không lỗi runtime. Repo workflow riêng có test engine
+thật với scenario wait tách biệt; engine người dùng chỉ được đọc metadata.
+Source bản `local-agent copy` cũng đã cập nhật tại máy phát triển. `.env` và
+credentials không đổi; chưa deploy VPS hoặc restart runner đang chạy. Cấu hình
+cho runner ngoài repo workflow ở [WORKFLOW.md](WORKFLOW.md).
 | Bước | Trạng thái | Kết quả |
 |---|---|---|
 | 001 Core | Source và test loopback đạt trên Windows Node 24; cần nghiệm thu VPS/local thật | Auth, pairing, realtime runner, RBAC, lease, ACK, owner takeover; sửa test runner Windows và trạng thái FE khi mất VPS |

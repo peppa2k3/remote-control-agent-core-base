@@ -1,4 +1,8 @@
 # Remote Control Agent — Core Starter 0.1
+
+Workflow bridge: panel **Kịch bản tự động** điều khiển scenario đã lưu trong
+Local Workflow Agent qua HTTP loopback và active lease hiện có. Xem
+[cấu hình workflow API và terminal CLI](docs/WORKFLOW.md).
 Website điều phối các máy ở nhà qua VPS, hiển thị kết nối realtime, chia sẻ quyền và cấp phiên điều khiển độc quyền có handshake. Windows/Linux là mục tiêu local; Node.js 24 là runtime.
 
 ## Có gì trong source?

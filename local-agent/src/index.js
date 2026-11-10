@@ -4,6 +4,7 @@ import {dirname,resolve} from 'node:path';
 import {createInterface} from 'node:readline/promises';
 import {createStatusSampler,parseStatusIntervalSeconds} from './status.js';
 import {createTerminalManager} from './terminal.js';
+import {createWorkflowClient,bindWorkflowSocket} from './workflow.js';
 const url=process.env.SERVER_URL||'http://localhost:4000';
 const statusIntervalSeconds=parseStatusIntervalSeconds();
 function terminalSeconds(name,fallback,min,max){const raw=process.env[name];if(raw===undefined||raw==='')return fallback;const value=Number(raw);if(!Number.isInteger(value)||value<min||value>max)throw Error(`${name} doit être entre ${min} et ${max} secondes`);return value}
@@ -20,6 +21,8 @@ if(existsSync(file)){credential=JSON.parse(readFileSync(file,'utf8'));if(credent
 }
 const socket=io(url,{auth:{kind:'agent',credential:credential.credential},transports:['websocket'],reconnectionDelay:1000,reconnectionDelayMax:10000,randomizationFactor:.5});
 let active=null,offered=null,promptAbort=null,statusTimer=null,statusBusy=false,statusErrorLogged=false,disconnectCleanup=Promise.resolve();
+const workflowClient=createWorkflowClient();
+const workflowSocket=bindWorkflowSocket({socket,getSession:()=>active,client:workflowClient});
 const statusSampler=createStatusSampler({maxSampleGapMs:statusIntervalSeconds*2000});
 const terminalManager=createTerminalManager({maxSeconds:terminalMaxSeconds,idleSeconds:terminalIdleSeconds,
  onOpened:payload=>socket.emit('terminal:opened',payload),
@@ -37,7 +40,7 @@ async function reportStatus(){
  }catch{if(!statusErrorLogged)console.error('Không đọc được status CPU/RAM/mạng trên máy này');statusErrorLogged=true}
  finally{statusBusy=false}
 }
-socket.on('connect',async()=>{console.log('Đã kết nối VPS');await disconnectCleanup;if(!socket.connected)return;socket.emit('agent:terminal-capabilities',{platform:process.platform,shells:process.platform==='win32'?['cmd','powershell']:[]});socket.emit('agent:terminal-state',terminalManager.activeSessions,state=>{if(state?.error)console.error('Không đồng bộ được trạng thái Terminal')});statusSampler.reset();void reportStatus();statusTimer=setInterval(()=>void reportStatus(),statusIntervalSeconds*1000)});
+socket.on('connect',async()=>{console.log('Đã kết nối VPS');await disconnectCleanup;if(!socket.connected)return;socket.emit('agent:workflow-capabilities',workflowClient.capabilities());socket.emit('agent:terminal-capabilities',{platform:process.platform,shells:process.platform==='win32'?['cmd','powershell']:[]});socket.emit('agent:terminal-state',terminalManager.activeSessions,state=>{if(state?.error)console.error('Không đồng bộ được trạng thái Terminal')});statusSampler.reset();void reportStatus();statusTimer=setInterval(()=>void reportStatus(),statusIntervalSeconds*1000)});
 socket.on('connect_error',e=>console.error('Lỗi kết nối:',e.message));
 socket.on('disconnect',()=>{disconnectCleanup=terminalManager.closeAll('agent.disconnected');if(statusTimer)clearInterval(statusTimer);statusTimer=null;statusSampler.reset();active=null;offered=null;promptAbort?.abort();console.log('Mất kết nối; phiên điều khiển đã hủy')});
 socket.on('session:offer',async p=>{
@@ -53,4 +56,4 @@ socket.on('terminal:input',(p,ack)=>{try{if(!p||active?.sessionId!==p.sessionId|
 socket.on('terminal:resize',(p,ack)=>{try{if(!p||active?.sessionId!==p.sessionId||Date.now()>=active.expires)throw Error('Lease không còn hiệu lực');ack?.(terminalManager.resize(p))}catch(e){ack?.({error:e.message||'Không thể resize Terminal'})}});
 socket.on('terminal:close',(p,ack)=>{const closed=!!p&&terminalManager.close(p.terminalId,p.sessionId,'user.closed');ack?.({ok:true,closing:closed})});
 const beat=setInterval(()=>{if(socket.connected)socket.emit('agent:heartbeat',{},()=>{});if(active&&Date.now()>=active.expires){for(const terminal of terminalManager.activeSessions)if(terminal.sessionId===active.sessionId)terminalManager.close(terminal.terminalId,terminal.sessionId,'lease.expired');active=null;console.log('Lease hết hạn tại local')}},5000);
-for(const sig of ['SIGINT','SIGTERM'])process.on(sig,async()=>{clearInterval(beat);if(statusTimer)clearInterval(statusTimer);await terminalManager.closeAll('agent.shutdown');socket.disconnect();rl.close();process.exit(0)});
+for(const sig of ['SIGINT','SIGTERM'])process.on(sig,async()=>{clearInterval(beat);if(statusTimer)clearInterval(statusTimer);workflowSocket.close();await terminalManager.closeAll('agent.shutdown');socket.disconnect();rl.close();process.exit(0)});

@@ -4,6 +4,8 @@ import {io} from 'socket.io-client';
 import './style.css';
 import './device-status.css';
 import './remote-terminal.css';
+import './workflow.css';
+import WorkflowPanel from './WorkflowPanel.jsx';
 const RemoteTerminal=lazy(()=>import('./RemoteTerminal.jsx'));
 
 async function api(path,body,method){
@@ -67,13 +69,14 @@ function RemoteTerminalLauncher(props){
  return <Suspense fallback={<p className="terminal-note">Đang tải giao diện terminal…</p>}><RemoteTerminal {...props} onDismiss={dismiss}/></Suspense>;
 }
 
-function DeviceCard({device,user,connected,mine,event,attempt,setMessage,terminalSessions,setTerminalSessions,terminalTargets}){
+function DeviceCard({device,user,connected,mine,event,attempt,setMessage,terminalSessions,setTerminalSessions,terminalTargets,workflowRequest}){
  return <article className="panel" key={device.id}>
   <div className="row"><h2>{device.name}</h2><span className={'badge '+(device.runnerStatus==='online'?'on':'')}>{device.runnerStatus}</span></div>
   <p>Quyền: <strong>{device.role}</strong></p>
   <p>Local Runner: {device.runnerStatus} · MeshCentral: chưa tích hợp</p>
   <p>{device.session?`Phiên ${device.session.state} · ${device.session.userId===user.id?'tài khoản của bạn':'người quản lý khác'}`:'Chưa có phiên điều khiển'}</p>
   <StatusTable device={device}/>
+  <WorkflowPanel device={device} sessionId={mine.current.get(device.id)} connected={connected} request={workflowRequest}/>
   <RemoteTerminalLauncher device={device} sessionId={mine.current.get(device.id)} connected={connected} canControl={device.role!=='viewer'} event={event} terminalSessions={terminalSessions} setTerminalSessions={setTerminalSessions} targets={terminalTargets}/>
   <small>{device.id}</small>
   <div className="actions">
@@ -91,6 +94,7 @@ function DeviceCard({device,user,connected,mine,event,attempt,setMessage,termina
 function App(){
  const [user,setUser]=useState(null),[devices,setDevices]=useState([]),[error,setError]=useState(''),[connected,setConnected]=useState(false),[pair,setPair]=useState(''),[message,setMessage]=useState(''),[terminalSessions,setTerminalSessions]=useState({});
  const socket=useRef(null),mine=useRef(new Map());
+ const workflowRequest=useCallback(payload=>new Promise((resolve,reject)=>{if(!socket.current?.connected){reject(Error('Chưa kết nối VPS'));return;}socket.current.timeout(15000).emit('workflow:request',payload,(error,result)=>{if(error)reject(Error('Hết thời gian chờ; kiểm tra lượt gần đây trước khi chạy lại'));else if(!result?.ok)reject(Error(result?.error||'Workflow request thất bại'));else resolve(result.data);});}),[]);
  const terminalTargets=useRef(null);if(!terminalTargets.current){terminalTargets.current=new Map();terminalTargets.current.pending=new Map()}
  useEffect(()=>{api('/auth/me').then(setUser).catch(()=>{})},[]);
  useEffect(()=>{
@@ -121,7 +125,7 @@ function App(){
   {!user?<form className="panel" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);attempt(async()=>setUser(await api('/auth/login',Object.fromEntries(f))))}}><h2>Đăng nhập</h2><input name="email" type="email" placeholder="Email" required/><input name="password" type="password" placeholder="Mật khẩu" required/><button>Đăng nhập</button></form>:<>
    <nav><strong>{user.name}</strong><button className="secondary" onClick={()=>attempt(async()=>{await api('/auth/logout',{});setUser(null);setDevices([])})}>Đăng xuất</button></nav>
    <section className="panel"><h2>Ghép cặp máy nhà</h2><form className="row" onSubmit={e=>{e.preventDefault();const name=new FormData(e.currentTarget).get('name');attempt(async()=>{const p=await api('/pairing',{name});setPair(p.code)})}}><input name="name" placeholder="Tên máy, ví dụ PC ở nhà" required maxLength="120"/><button>Tạo mã ghép cặp</button></form>{pair&&<><p>Mã dùng một lần, hết hạn sau 5 phút. Điền vào PAIR_CODE trên máy nhà.</p><code className="pair">{pair}</code></>}</section>
-   <section className="grid">{devices.map(device=><DeviceCard key={device.id} device={device} user={user} connected={connected} mine={mine} event={event} attempt={attempt} setMessage={setMessage} terminalSessions={terminalSessions} setTerminalSessions={setTerminalSessions} terminalTargets={terminalTargets}/>)}</section>
+   <section className="grid">{devices.map(device=><DeviceCard key={device.id} device={device} user={user} connected={connected} mine={mine} event={event} attempt={attempt} setMessage={setMessage} terminalSessions={terminalSessions} setTerminalSessions={setTerminalSessions} terminalTargets={terminalTargets} workflowRequest={workflowRequest}/>)}</section>
    {!devices.length&&<p>{connected?'Chưa có thiết bị. Ghép cặp Local Runner để bắt đầu.':'Chưa kết nối VPS; trạng thái các máy hiện chưa xác định.'}</p>}
    <footer>CPU, RAM, lưu lượng mạng và dữ liệu Terminal được truyền realtime, không lưu nội dung lệnh hay output. CMD/PowerShell chỉ hoạt động trên Windows Local Agent; terminal yêu cầu active lease và tự đóng khi lease kết thúc.</footer>
   </>}

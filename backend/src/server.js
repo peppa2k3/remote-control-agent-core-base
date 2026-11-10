@@ -7,6 +7,7 @@ import {existsSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {Server} from 'socket.io';
 import {Store,hash,token,passwordOK,fail} from './store.js';
+import {createWorkflowRelay} from './workflow.js';
 const STATUS_FIELDS=['cpuPercent','ramUsedBytes','ramTotalBytes','networkRxBytesPerSecond','networkTxBytesPerSecond','uptimeSeconds'];
 const STATUS_MAX_AGE_MS=180000;
 const TERMINAL_SHELLS=['cmd','powershell'],MAX_TERMINAL_CHUNK_BYTES=4096,MAX_TERMINAL_INPUT_BYTES=1024*1024,MAX_TERMINAL_OUTPUT_BYTES=4*1024*1024;
@@ -29,8 +30,9 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
  if(process.env.TRUST_PROXY==='true')app.set('trust proxy',1);
  app.use(helmet());app.use(express.json({limit:'16kb'}));
  app.use('/api',rateLimit({windowMs:60000,limit:180}));
- const io=new Server(http,{cors:{origin,credentials:true},maxHttpBufferSize:16384,allowRequest:(req,done)=>done(null,!req.headers.origin||req.headers.origin===origin)});
+ const io=new Server(http,{cors:{origin,credentials:true},maxHttpBufferSize:524288,allowRequest:(req,done)=>done(null,!req.headers.origin||req.headers.origin===origin)});
  const agents=new Map(), viewers=new Map(), deviceStatuses=new Map(),terminalCapabilities=new Map(),terminalSessions=new Map();
+ const workflowRelay=createWorkflowRelay({agents,db,authenticate:req=>user(req),broadcast:()=>broadcast()});
  const cookie=req=>{const part=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('rca='));return part?part.slice(4):''};
  function user(req){const s=db.one('SELECT userId,expires FROM logins WHERE hash=?',hash(cookie(req)));if(!s||s.expires<Date.now())fail(401,'Cần đăng nhập');return s.userId}
  const auth=(req,res,next)=>{try{req.userId=user(req);next()}catch(e){next(e)}};
@@ -51,7 +53,7 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
  }
  function terminalError(terminal,message){if(terminalSessions.get(terminal.deviceId)!==terminal)return;terminal.state='error';if(!terminal.errorAudited){db.audit(terminal.userId,terminal.deviceId,'terminal.error');terminal.errorAudited=true}browserTerminalEvent(terminal,'terminal:error',{message:String(message||'Terminal error').slice(0,160)});}
  function stop(d,event){closeTerminal(d,event);const l=db.release(d,event);if(l){agents.get(d)?.socket.emit('session:revoked',{sessionId:l.id,reason:event});io.to(l.browserId).emit('session:revoked',{deviceId:d,sessionId:l.id,reason:event})}}
- function visible(u){const now=Date.now();return db.all(`SELECT d.id,d.name,d.ownerId,CASE WHEN d.ownerId=? THEN 'owner' ELSE m.role END AS role,l.id AS sessionId,l.userId AS sessionUserId,l.state AS sessionState,l.expires AS sessionExpires FROM devices d LEFT JOIN members m ON m.deviceId=d.id AND m.userId=? LEFT JOIN leases l ON l.deviceId=d.id AND l.expires>? WHERE d.revoked=0 AND (d.ownerId=? OR m.userId IS NOT NULL)`,u,u,now,u).map(d=>{const a=agents.get(d.id),live=!!a&&now-a.seen<25000,status=deviceStatuses.get(d.id),capability=terminalCapabilities.get(d.id),terminal=terminalSessions.get(d.id);return {id:d.id,name:d.name,ownerId:d.ownerId,role:d.role,runnerStatus:live?'online':'offline',lastSeen:a?.seen??null,meshStatus:'not_integrated',status:live&&status&&now-status.updatedAt<=STATUS_MAX_AGE_MS?status:null,terminalSupported:live&&capability?.platform==='win32',terminalShells:live?capability?.shells??[]:[],terminal:terminal?{state:terminal.state,startedAt:terminal.startedAt}:null,session:d.sessionId?{id:d.sessionId,userId:d.sessionUserId,state:d.sessionState,expires:d.sessionExpires}:null}})}
+ function visible(u){const now=Date.now();return db.all(`SELECT d.id,d.name,d.ownerId,CASE WHEN d.ownerId=? THEN 'owner' ELSE m.role END AS role,l.id AS sessionId,l.userId AS sessionUserId,l.state AS sessionState,l.expires AS sessionExpires FROM devices d LEFT JOIN members m ON m.deviceId=d.id AND m.userId=? LEFT JOIN leases l ON l.deviceId=d.id AND l.expires>? WHERE d.revoked=0 AND (d.ownerId=? OR m.userId IS NOT NULL)`,u,u,now,u).map(d=>{const a=agents.get(d.id),live=!!a&&now-a.seen<25000,status=deviceStatuses.get(d.id),capability=terminalCapabilities.get(d.id),terminal=terminalSessions.get(d.id);return {id:d.id,name:d.name,ownerId:d.ownerId,role:d.role,runnerStatus:live?'online':'offline',lastSeen:a?.seen??null,meshStatus:'not_integrated',workflowSupported:live&&workflowRelay.supported(d.id),status:live&&status&&now-status.updatedAt<=STATUS_MAX_AGE_MS?status:null,terminalSupported:live&&capability?.platform==='win32',terminalShells:live?capability?.shells??[]:[],terminal:terminal?{state:terminal.state,startedAt:terminal.startedAt}:null,session:d.sessionId?{id:d.sessionId,userId:d.sessionUserId,state:d.sessionState,expires:d.sessionExpires}:null}})}
  function broadcast(){const snapshots=new Map();for(const [id,u]of viewers){const s=io.sockets.sockets.get(id);if(!s)continue;if(!snapshots.has(u))snapshots.set(u,visible(u));s.emit('devices:snapshot',snapshots.get(u))}}
  app.get('/api/health',(req,res)=>res.json({status:'ok',at:Date.now()}));
  app.post('/api/auth/login',writeOrigin,rateLimit({windowMs:60000,limit:10}), (req,res)=>{const email=validString(req.body.email,254).toLowerCase(),pw=validString(req.body.password,256),u=db.one('SELECT * FROM users WHERE email=?',email);if(!passwordOK(pw,u?.password||'invalid'))fail(401,'Thông tin đăng nhập không đúng');const key=token();db.run('INSERT INTO logins VALUES(?,?,?)',hash(key),u.id,Date.now()+8*3600000);res.cookie('rca',key,{httpOnly:true,secure,sameSite:'strict',maxAge:8*3600000,path:'/'});res.json({id:u.id,email:u.email,name:u.name})});
@@ -73,7 +75,7 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
  io.on('connection',socket=>{
   if(socket.data.deviceId){
    const d=socket.data.deviceId;if(agents.has(d)){socket.disconnect(true);return} // no silent replacement of an active agent
-    deviceStatuses.delete(d);terminalCapabilities.delete(d);agents.set(d,{socket,seen:Date.now()});socket.emit('agent:ready',{deviceId:d});broadcast();
+    deviceStatuses.delete(d);terminalCapabilities.delete(d);agents.set(d,{socket,seen:Date.now()});workflowRelay.bindAgent(socket,d);socket.emit('agent:ready',{deviceId:d});broadcast();
    socket.on('agent:heartbeat',(_,ack)=>{if(agents.get(d)?.socket!==socket)return;agents.get(d).seen=Date.now();ack?.({ok:true,at:Date.now()})});
    let lastStatusAt=0;
    socket.on('agent:status',(payload,ack)=>{if(agents.get(d)?.socket!==socket)return;try{const status=validateDeviceStatus(payload),now=Date.now();if(now-lastStatusAt<1000)fail(429,'Status được gửi quá thường xuyên');lastStatusAt=now;deviceStatuses.set(d,{...status,updatedAt:now});ack?.({ok:true,at:now});broadcast()}catch(e){ack?.({error:e.message,status:e.status||400})}});
@@ -86,7 +88,7 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
    socket.on('session:ack',(p,ack)=>{try{if(Date.now()-agents.get(d).seen>=25000)fail(409,'Heartbeat quá hạn');const l=db.ack(d,p?.sessionId,p?.nonce,p?.accept===true);if(l){socket.emit('session:active',{sessionId:l.id,expires:l.expires});io.to(l.browserId).emit('session:active',{deviceId:d,sessionId:l.id,expires:l.expires})}broadcast();ack?.({ok:true})}catch(e){ack?.({error:e.message})}});
     socket.on('disconnect',()=>{if(agents.get(d)?.socket===socket){agents.delete(d);deviceStatuses.delete(d);terminalCapabilities.delete(d);stop(d,'agent.disconnected');broadcast()}});
   }else{
-   let eventWindow=Date.now(),eventCount=0;const u=socket.data.userId;viewers.set(socket.id,u);socket.emit('devices:snapshot',visible(u));
+   let eventWindow=Date.now(),eventCount=0;const u=socket.data.userId;viewers.set(socket.id,u);workflowRelay.bindBrowser(socket,u);socket.emit('devices:snapshot',visible(u));
     function handle(event,fn,rateLimited=true){socket.on(event,(p,ack)=>{try{if(rateLimited){if(Date.now()-eventWindow>10000){eventWindow=Date.now();eventCount=0}if(++eventCount>100)fail(429,'Quá nhiều yêu cầu realtime')}if(user(socket.request)!==u)fail(401,'Phiên đăng nhập hết hạn');ack?.({ok:true,...fn(p||{})})}catch(e){ack?.({error:e.message,status:e.status||400})}})}
    handle('session:request',p=>{
     const d=validString(p.deviceId),a=agents.get(d),role=db.role(d,u),current=db.lease(d);

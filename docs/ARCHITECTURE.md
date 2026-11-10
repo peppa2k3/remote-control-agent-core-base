@@ -15,7 +15,13 @@ Socket xác thực → agent ready → heartbeat mỗi 5s → backend cập nh�
 Status mạng là tốc độ byte nhận/gửi. Linux cộng các adapter trong `/proc/net/dev` trừ `lo`; Windows cộng các adapter do `Get-NetAdapterStatistics` trả về qua lệnh PowerShell cố định trong Local Runner. Adapter ảo/VPN có thể được tính vào. Khi runner offline hoặc chưa có mẫu đầu tiên, UI để số liệu là chưa có thay vì suy đoán.
 
 ## Chạy kịch bản local
-Core không nạp manifest, công bố catalog hoặc chạy script theo yêu cầu từ dashboard. Tính năng “Kịch bản trên máy” đã được loại khỏi source.
+
+Workflow bridge mới dùng engine Local Workflow Agent chạy riêng tại loopback.
+VPS relay catalog/run/status/stop theo active lease; engine giữ validation,
+Chrome extension và lịch sử. Đây là kết nối engine scenario có sẵn; không tải
+manifest hoặc nhận code shell qua panel. Chi tiết tại [WORKFLOW](WORKFLOW.md).
+Generic script runner/manifest cũ đã được loại khỏi source. Catalog scenario
+hiện do workflow engine riêng cung cấp qua bridge.
 VPS mất kết nối browser: FE xóa snapshot và hiển thị chưa kết nối; kết nối lại nhận snapshot mới. Browser không thể biết VPS mất điện hay mạng client bị lỗi chỉ từ disconnect. Runner online nghĩa là tiến trình runner liên lạc được, không bảo đảm desktop interactive đang sẵn sàng.
 
 ## Remote Terminal

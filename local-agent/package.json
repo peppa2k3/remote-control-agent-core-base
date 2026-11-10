@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env src/index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "workflow": "node workflow.js"
   },
   "dependencies": {
     "node-pty": "1.1.0",
