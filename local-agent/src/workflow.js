@@ -106,6 +106,16 @@ export function bindWorkflowSocket({socket, getSession, client = createWorkflowC
     const session = getSession();
     return socket.connected && typeof sessionId === 'string' && sessionId && session?.sessionId === sessionId && Number.isFinite(session.expires) && now() < session.expires;
   };
+  function watchExpiry(controller) {
+    const request = pending.get(controller);
+    if (!request || controller.signal.aborted) return;
+    clearTimeout(request.timer);
+    if (!allowed(request.sessionId)) { controller.abort(); return; }
+    // Renewals can extend the lease while HTTP is pending. Re-read its expiry
+    // at the old deadline instead of cancelling a successfully renewed lease.
+    request.timer = setTimeout(() => watchExpiry(controller), Math.max(1, Math.min(2147483647, getSession().expires - now())));
+    request.timer.unref?.();
+  }
   const onRequest = async (payload, acknowledge) => {
     if (typeof acknowledge !== 'function') return;
     let controller;
@@ -114,21 +124,25 @@ export function bindWorkflowSocket({socket, getSession, client = createWorkflowC
       if (!object(payload) || Object.keys(payload).some(key => !['sessionId', 'operation', 'params', 'requestId'].includes(key))) fail('INVALID_REQUEST', 'Invalid workflow message');
       if (!allowed(payload.sessionId)) fail('LEASE_REQUIRED', 'An active control session is required', 403);
       if (payload.params?.uploadPath !== undefined) fail('INVALID_REQUEST', 'Socket requests use file paths saved in the scenario');
+      if (Buffer.byteLength(JSON.stringify(payload.params ?? {})) > 12000) fail('INVALID_REQUEST', 'Workflow parameters too large', 413);
       if (pending.size >= 4) fail('BUSY', 'Too many workflow requests in progress', 429);
-      controller = new AbortController(); pending.set(controller, payload.sessionId);
+      controller = new AbortController(); pending.set(controller, {sessionId: payload.sessionId});
+      watchExpiry(controller);
       const data = await client.request(payload.operation, payload.params, {requestId: payload.requestId, signal: controller.signal});
-      if (!allowed(payload.sessionId)) fail('LEASE_REQUIRED', 'Control session expired; reconnect and inspect run history', 403);
+      if (controller.signal.aborted || !allowed(payload.sessionId)) fail('LEASE_REQUIRED', 'Control session expired; reconnect and inspect run history', 403);
       if (Buffer.byteLength(JSON.stringify(data)) > 500000) fail('RESPONSE_TOO_LARGE', 'Workflow response is too large for the VPS relay', 502);
       acknowledge({ok: true, requestId, data});
     } catch (error) {
       acknowledge({ok: false, requestId, code: error.code || 'INTERNAL', status: error.status || 500, error: error.status ? error.message : 'Workflow request failed'});
-    } finally { if (controller) pending.delete(controller); }
+    } finally { if (controller) { clearTimeout(pending.get(controller)?.timer); pending.delete(controller); } }
   };
-  const abort = sessionId => { for (const [controller, owner] of pending) if (!sessionId || owner === sessionId) controller.abort(); };
+  const abort = sessionId => { for (const [controller, request] of pending) if (!sessionId || request.sessionId === sessionId) { clearTimeout(request.timer); controller.abort(); } };
   const onDisconnect = () => abort();
   const onRevoke = payload => { if (payload?.sessionId) abort(payload.sessionId); };
+  const onActive = payload => { for (const request of pending.values()) if (request.sessionId !== payload?.sessionId) abort(request.sessionId); };
   socket.on('workflow:request', onRequest);
   socket.on('disconnect', onDisconnect);
   socket.on('session:revoked', onRevoke);
-  return {close() { abort(); socket.off('workflow:request', onRequest); socket.off('disconnect', onDisconnect); socket.off('session:revoked', onRevoke); }};
+  socket.on('session:active', onActive);
+  return {close() { abort(); socket.off('workflow:request', onRequest); socket.off('disconnect', onDisconnect); socket.off('session:revoked', onRevoke); socket.off('session:active', onActive); }};
 }

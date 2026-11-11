@@ -1,4 +1,15 @@
 # Các prompt chạy tuần tự
+
+## Bộ prompt tích hợp workflow (WFI)
+
+Đã khảo sát source ba app trong `ref/local_workflow_agent-dev-remote/` và bridge
+hiện tại. Xem [phân tích và thứ tự 8 bước](WORKFLOW_INTEGRATION_PLAN.md), sau đó
+dùng [câu lệnh và quy tắc chạy WFI](prompts/planned/workflow-integration/README.md).
+Tất cả đang **Planned**, chưa triển khai engine/supervisor/extension/jobs mới.
+Dãy WFI độc lập với 001–008 dưới đây; không phục hồi generic script runner cũ.
+
+## Bộ prompt core
+
 Mở repo bằng VS Code/Codex; gọi prompt phù hợp, xem kết quả/test/commit rồi mới tiếp tục. Không dán nhiều prompt cùng lượt.
 
 | Thứ tự | File trong docs/prompts/planned | Mục tiêu |

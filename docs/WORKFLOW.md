@@ -46,6 +46,10 @@ node local-agent/workflow.js stop --run-id UUID_TRA_VE
 
 Hoặc chạy `node workflow.js ...` ngay tại thư mục terminal agent đã cấu hình
 `WORKFLOW_AGENT_ENV_FILE`. CLI không phụ thuộc source engine trong cùng repo.
+CLI in JSON `{requestId}` ra stderr **trước khi gửi** lệnh `run`, kể cả không
+dùng `--wait`. Nếu mất phản hồi, kiểm tra lịch sử; khi thử lại cùng tham số, thêm
+`--request-id MA_DA_IN` để engine nhận lại đúng idempotency key. Stdout vẫn là
+JSON kết quả; không tự gửi lại bằng một key mới khi chưa biết kết quả lượt cũ.
 
 ## Quyền và vòng đời
 
@@ -55,7 +59,10 @@ gửi kết quả cho phiên đã bị thu hồi; local cũng kiểm tra session
 Viewer và browser khác của cùng user không được điều khiển bằng sessionId cũ.
 
 Panel poll trạng thái mỗi 2 giây khi đang chạy. Mất lease/mạng dừng quyền gửi
-lệnh mới và HTTP đang chờ, nhưng workflow đã được engine nhận có thể tiếp tục.
+lệnh mới và HTTP đang chờ. Runner tự theo dõi expiry local, không cần chờ VPS
+gửi revoke; gia hạn cùng lease cập nhật hạn chờ, thay session hủy request cũ.
+Kết quả đến sau khi request bị hủy không được trả về browser. Tuy vậy, workflow
+đã được engine nhận có thể tiếp tục.
 Lấy lease mới, tải danh sách và chọn **Lượt gần đây** để tra cứu/dừng đúng runId.
 Các popup xác nhận media trùng cần được xử lý trên dashboard local.
 
@@ -68,7 +75,8 @@ token, biến hay response. Workflow history thuộc engine local.
 Bridge chỉ gọi operation cố định, scenario đã lưu và biến được engine validate;
 không nhận shell/steps/API URL từ frontend. Socket không nhận uploadPath; file
 upload được cấu hình trong scenario. Tham số tối đa 12KB, response relay tối đa
-512KB, tối đa bốn request chờ mỗi browser/local agent. Timeout relay 12 giây.
+512KB, tối đa bốn request chờ mỗi browser/local agent. Params 12KB được kiểm tra
+ở cả VPS và runner. Timeout relay 12 giây.
 
 ## Kiểm chứng
 

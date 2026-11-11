@@ -1,0 +1,17 @@
+node_modules/
+.facebook-chrome-profile/
+*.pem
+*.crx
+playwright-report/
+test-results/
+*.log
+
+tools/
+data/
+local-agent/data-backup/
+**/data-backup/
+dist/
+.env
+.env.*
+!.env.example
+!.env.control.example

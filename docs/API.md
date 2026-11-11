@@ -15,6 +15,9 @@ deviceId. Runner gọi API local với token của máy. ACK về browser:
 `{ok:true,requestId,data}` hoặc `{ok:false,error,status}`. Revoke trong khi đợi
 response từ chối trả data cho browser cũ. Socket payload tối đa 512KiB; từng
 event vẫn có giới hạn riêng (terminal 4KiB, workflow params 12KB).
+Runner cũng áp dụng giới hạn params 12KB và hủy HTTP đang chờ khi lease local
+hết hạn, bị thay thế, revoke hoặc socket disconnect. Gia hạn cùng session giữ
+request đang chờ tới expiry mới. Kết quả tới sau khi hủy không được relay.
 
 Xem [cấu hình, ví dụ và vòng đời workflow](WORKFLOW.md).
 HTTP app cùng origin frontend; mọi mutation của user yêu cầu Origin = PUBLIC_ORIGIN. Cookie rca HttpOnly, SameSite=Strict, Secure trên HTTPS. Body JSON tối đa 16KiB. Error {error}; HTTP 400/401/403/404/409/500.

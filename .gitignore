@@ -8,7 +8,7 @@ node_modules/
 infrastructure/meshcentral/meshcentral-data/
 infrastructure/meshcentral/meshcentral-files/
 .codegraph/
-ref/*
+# /ref
 deploy-guides.md
 local-agent/data-backup/*
 local-agent-local/*

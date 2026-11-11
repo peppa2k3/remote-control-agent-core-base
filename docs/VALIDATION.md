@@ -1,5 +1,13 @@
 # Validation — 2026-10-14 (Asia/Saigon)
 
+## Workflow bridge — rà soát 2026-11-11 (Asia/Bangkok)
+- `npm test`: backend 5/5 và Local Runner 13/13 đạt trên Windows 10.0.19045, Node v24.16.0. `npm run build` đạt (Vite 8.3.4, 54 modules).
+- Test Socket.IO + HTTP loopback xác nhận browser khác/viewer bị chặn, request run giữ idempotency header, shell/uploadPath bị chặn, revoke không trả data đang chờ và lease hết hạn không gọi engine. Sau điều chỉnh test expiry, chạy riêng `node --test backend/test/workflow.test.js` đạt.
+- Test đồng hồ giả xác nhận HTTP pending bị abort tại expiry local khi không có VPS revoke; gia hạn cùng session vượt deadline cũ không bị hủy và request hoàn tất được dọn timer.
+- Test hủy do thay session/revoke/disconnect/shutdown xác nhận AbortSignal bị hủy và response đến muộn không được relay, kể cả client giả lập bỏ qua abort. Params quá 12KB bị chặn trước khi gọi HTTP client.
+- Test CLI mô phỏng mất response sau khi engine nhận run: requestId đã được xuất trước request, thử lại với `--request-id` giữ nguyên key và body. Đây là kiểm tra key phía bridge, không chứng minh cơ chế deduplicate của engine thật.
+- Các kiểm tra engine dùng HTTP fixture; chưa chạy scenario/Chrome extension thật, UI browser mới, VPS/domain hay kết nối Internet. Không deploy, restart runner, sửa secret hoặc cập nhật source trong `local-agent copy`. Workflow đã được engine nhận có thể tiếp tục sau mất lease; abort HTTP không phải rollback/stop workflow.
+
 ## Remote Terminal CMD/PowerShell — 2026-11-08 (Asia/Bangkok)
 - `npm test`: backend 4/4 pass; Local Runner 11/11 pass.
 - Windows PTY integration chạy trên Windows 10.0.19045, Node v24.16.0. Đã mở CMD/PowerShell, chạy `hostname`, `ipconfig`, `ping -t 127.0.0.1`, gửi Ctrl+C và xác nhận `ping.exe` không còn sau khi đóng terminal.

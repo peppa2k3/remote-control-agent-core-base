@@ -61,4 +61,9 @@ test('workflow travels browser → authenticated VPS → leased local runner →
   const denied=await waiting;assert.equal(denied.status,403);assert.equal(Object.hasOwn(denied,'data'),false,'revoked browser never receives an in-flight response');
   const count=requests.length;assert.equal((await emit(web,'workflow:request',start)).status,403);assert.equal(requests.length,count);
   assert(core.db.all('SELECT event FROM audit WHERE deviceId=?',device.deviceId).some(row=>row.event==='workflow.run'));
+  const nextOffer=once(agent,'session:offer');await emit(web,'session:request',{deviceId:device.deviceId});const [nextPending]=await nextOffer;
+  const nextActive=once(agent,'session:active');await emit(agent,'session:ack',{sessionId:nextPending.sessionId,nonce:nextPending.nonce,accept:true});await nextActive;
+  core.db.run('UPDATE leases SET expires=? WHERE deviceId=?',Date.now()-1,device.deviceId);
+  assert.equal((await emit(web,'workflow:request',{...payload,sessionId:nextPending.sessionId})).status,403);
+  assert.equal(requests.length,count,'expired request never reaches the loopback engine');
 });

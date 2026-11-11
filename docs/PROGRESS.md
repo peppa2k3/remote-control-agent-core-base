@@ -1,5 +1,36 @@
 # Tiến độ
 
+2026-11-11: Thiết lập CodeGraph cho repo. Máy đã có npm global v1.6.2 (trùng
+latest npm khi kiểm tra); cấu hình Codex MCP global và khởi tạo `.codegraph/`.
+Thêm `codegraph.json` loại secrets/runtime/ref/bản sao agent; telemetry giữ
+disabled. Index 24 files, 328 nodes, 1.061 edges; status up-to-date và explore
+thành công. MCP stdio initialize/tools-list pass, có codegraph_explore; cần
+restart Codex/IDE để nạp cấu hình vào session mới. `npm test` exit 0 (5 backend,
+13 local-agent), `npm run build` exit 0. Hướng dẫn tại [CODEGRAPH](CODEGRAPH.md).
+Không thay runtime app, `.env` hoặc deploy VPS.
+
+2026-11-11: Khảo sát source `ref/local_workflow_agent-dev-remote/` và workflow
+bridge hiện có; thêm [kế hoạch tích hợp](WORKFLOW_INTEGRATION_PLAN.md) và bộ
+[8 prompt WFI](prompts/planned/workflow-integration/README.md). Đề xuất giữ
+pairing/RBAC/lease Socket.IO core, engine local riêng, policy/grant/watchdog,
+supervisor, Chrome profile/extension readiness và journal/jobs đồng bộ; không
+chạy control-server HTTP như đường điều khiển thứ hai ở integrated mode.
+Đây chỉ là tài liệu chuẩn bị, toàn bộ WFI còn planned; chưa đổi runtime/env,
+chưa deploy hoặc khởi động engine/Chrome. Baseline thực chạy: `npm test` exit 0
+(backend 5/5, local-agent 13/13, gồm Windows PTY); `npm run build` exit 0.
+Chưa chạy test repo ref, Chrome extension E2E, MongoDB/video hoặc WAN/VPS.
+
+2026-11-11: Rà soát và củng cố workflow bridge. Runner hủy HTTP đang chờ ngay
+khi lease local hết hạn (không chờ revoke từ VPS), thay session, revoke,
+disconnect hoặc shutdown; gia hạn cùng session giữ request hợp lệ, kết quả tới
+muộn sau hủy bị chặn. Params 12KB được kiểm tra thêm tại runner. CLI in
+requestId ra stderr trước POST run để giữ key khi mất response. Bổ sung test
+expiry/gia hạn/hủy/late response/giới hạn params/CLI retry key và kiểm tra lease
+hết hạn tại backend. `npm test`: backend 5/5 và local-agent 13/13 đạt;
+`npm run build` đạt. Chi tiết ở [VALIDATION.md](VALIDATION.md). Chưa triển khai
+VPS, restart runner hay chạy scenario thật; không thay `.env`, credentials,
+source runner bản sao hoặc trạng thái completed của prompt.
+
 2026-11-10: Bổ sung workflow engine bridge qua HTTP loopback và Socket.IO active
 lease. Backend kiểm tra RBAC/user/browser/device/session, local kiểm tra lease,
 frontend có panel catalog/profile/biến/run/status/history/stop. Generic script

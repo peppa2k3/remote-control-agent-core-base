@@ -1,0 +1,19 @@
+{
+  "exclude": [
+    "**/.env",
+    "**/.env.*",
+    "**/credentials*.json",
+    "**/*.pem",
+    "**/*.key",
+    "**/*.sqlite*",
+    "**/data/",
+    "**/data-backup/",
+    "**/node_modules/",
+    "**/dist/",
+    "ref/",
+    "local-agent copy/",
+    "local-agent-local/",
+    "infrastructure/meshcentral/meshcentral-data/",
+    "infrastructure/meshcentral/meshcentral-files/"
+  ]
+}
