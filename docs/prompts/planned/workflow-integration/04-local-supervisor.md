@@ -1,5 +1,11 @@
 # WFI-04 — Supervisor và health của engine local
 
+Trạng thái: **Completed (source và acceptance local Windows, 2026-11-12)**.
+Giữ nguyên đường dẫn để tương thích liên kết. Cấu hình và giới hạn tại
+[WORKFLOW_SUPERVISOR](../../../WORKFLOW_SUPERVISOR.md); bằng chứng test tại
+[VALIDATION](../../../VALIDATION.md). Chưa deploy VPS hoặc kiểm chứng phiên
+Windows interactive/Chrome profile người dùng; các phần đó thuộc WFI-05–08.
+
 Đọc README chung; phụ thuộc WFI-03.
 
 ## Thực hiện

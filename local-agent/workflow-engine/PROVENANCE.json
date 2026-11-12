@@ -303,6 +303,7 @@
     "Safe standalone exporter with exact file manifest and runtime-only lock, no ref or development dependencies.",
     "Node-only tests ported; browser sections run separately; authored API/adapter/package/paths tests use temporary state.",
     "README/setup/env examples updated, sample scenarios replaced with public fixtures, optional startup task renamed to avoid legacy task collision.",
-    "WFI-03 (2026-11-12): engine 0.2.0 adds opt-in integrated mode, pinned local policy, grant/watchdog, persistent fencing/barriers and confirmed quiescence. Extension 4.3.0 reports settlementVersion=1 and settled receipts. Standalone v1 remains explicit legacy behavior."
+    "WFI-03 (2026-11-12): engine 0.2.0 adds opt-in integrated mode, pinned local policy, grant/watchdog, persistent fencing/barriers and confirmed quiescence. Extension 4.3.0 reports settlementVersion=1 and settled receipts. Standalone v1 remains explicit legacy behavior.",
+    "WFI-04 (2026-11-12): engine 0.3.0 lifecycleVersion=1, exclusive runtime mutex, owned IPC lifecycle and drain/unknown health; core runner attach/managed supervisor uses fixed daemon entrypoint and filters child environment."
   ]
 }

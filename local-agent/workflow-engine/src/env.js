@@ -5,6 +5,7 @@ const inherited = new Set(Object.keys(process.env).map(key => process.platform =
 let envFile = process.env.LOCAL_AGENT_ENV_FILE || defaultEnvFile;
 
 function loadProjectEnv(file = envFile) {
+  if (process.env.LOCAL_AGENT_ENV_DISABLED === '1') return false;
   envFile = file;
   try { process.loadEnvFile(file); return true; }
   catch (error) {
@@ -14,7 +15,7 @@ function loadProjectEnv(file = envFile) {
 }
 function mongoSettings() {
   let values = {};
-  try { values = parseEnv(fs.readFileSync(envFile, 'utf8')); }
+  try { if(process.env.LOCAL_AGENT_ENV_DISABLED !== '1') values = parseEnv(fs.readFileSync(envFile, 'utf8')); }
   catch (error) { if (error.code !== 'ENOENT') throw new Error('Cannot read .env MongoDB settings'); }
   // Re-read only Mongo settings; values inherited from the shell retain priority.
   for (const key of ['MONGODB_URI', 'MONGODB_DATABASE', 'MONGODB_DNS_SERVERS']) if (!inherited.has(key)) {

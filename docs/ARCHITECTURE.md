@@ -6,8 +6,13 @@ workflow:v2:request; grant được backend cấp từ auth/lease, không từ p
 SQLite workflow_control giữ fence/grant metadata/barrier; engine lưu local
 workflow-grants.json, không raw variables trên VPS. Watchdog + per-step guard
 thu hồi quyền; quiescence tách khỏi state cancelled. Extension 4.3.0 xác nhận
-content idle/input completion. Standalone/v1 vẫn riêng; supervisor/jobs/report
-toàn tuyến chưa có. Xem [WORKFLOW_GRANTS](WORKFLOW_GRANTS.md).
+content idle/input completion. Standalone/v1 vẫn riêng; jobs/report toàn tuyến
+chưa có. WFI-04 thêm supervisor attach/managed trong runner, HTTP health có auth
+và IPC ownership riêng cho child managed. SQLite transaction khóa controller theo
+URL và engine theo data directory; không kill process ngoài ownership. Backend
+lọc health trong snapshot membership, áp dụng freshness 15 giây và thu hồi grant
+khi mất readiness/đổi instance/policy. Xem [WORKFLOW_SUPERVISOR](WORKFLOW_SUPERVISOR.md)
+và [WORKFLOW_GRANTS](WORKFLOW_GRANTS.md).
 
 WFI-02 đã vendor engine CommonJS tại `local-agent/workflow-engine/` (workspace
 riêng) và extension MV3 tại `local-agent/chrome-reels-extension/`. Runner ESM gọi

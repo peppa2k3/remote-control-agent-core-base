@@ -110,3 +110,36 @@ Runtime kiểm tra: Linux, Node v24.19.0, npm 11.9.0.
   full extension worker/profile người dùng, Linux tree E2E hoặc startup. Bản này
   giữ unknown/barrier khi thiếu proof, không tự recovery hoặc replay. Không có
   openProfile/GET jobs/report seq/queue/retention 30/90 ngày toàn tuyến.
+## WFI-04 — 2026-11-12, Windows 10.0.19045 / Node 24.16.0
+
+- `npm test`: exit 0, **52/52** (backend 8, Local Runner 19, engine 25).
+- `npm run build`: exit 0. `node --check`: 14 changed/new JavaScript files, exit 0.
+- `npm run test:browser -w @rca/workflow-engine`: exit 0, **3/3**, Chrome contexts
+  riêng, giữ các ca content/catalog/cancellation của source đã nhập.
+- `node --test backend/test/browser/workflow-health.test.js`: exit 0, **1/1**,
+  dashboard dist thật + core/Socket.IO + agent fixture: starting/ready/failed/
+  offline, controls không có lease bị khóa, không hiện path/token, không pageerror.
+- `node --test local-agent/test/workflow-supervisor.test.js`: exit 0, **6/6**,
+  process engine thật, fixed argv/cwd/env; managed cold start/owned IPC shutdown;
+  concurrent controller theo URL canonical; engine khác port nhưng chung data bị
+  chặn trước khi ghi runtime; attach không kill engine; occupied port không spawn;
+  wrong token/version/protocol không ready; deadline/cap/timeout có fault child
+  thật không trả lời IPC. Không dùng timer giả để khẳng định process đã exit.
+- NTFS thật: fixture env bỏ inheritance, current-user-only được chấp nhận; cấp
+  Everyone Read bị Get-Acl kiểm tra SID từ chối, không spawn. Env filter không
+  truyền device/backend credential/NODE_OPTIONS; token không có trong argv/snapshot.
+- Crash giữa lượt wait được engine chấp nhận: supervisor spawn instance mới,
+  journal giữ đúng một run unknown, grant cũ revoked, không replay và không báo
+  cleanup thành công. Deadline dùng monotonic clock, timeout HTTP làm tròn ms.
+- Backend integration thật + supervisor attach + engine: heartbeat health cùng
+  instance không revoke grant, RBAC/lease/takeover/revoke vẫn qua. Health bỏ nested
+  path/token, chỉ member thấy, timestamp do server nhận; runner vẫn heartbeat
+  nhưng health quá 15 giây chuyển STALE, offline trả null.
+
+Toàn bộ dùng temp runtime và token fixture; không đọc/sửa env/credentials/profile
+người dùng, không cài startup task, restart installation thật hoặc deploy VPS.
+Chưa nghiệm thu VPS/network thật, unattended Windows interactive session, profile
+đăng nhập/extension thực hiện website side effect, hoặc parent crash khi external
+Chrome đang thực hiện input. Các trường hợp đó tiếp tục cần WFI-05–08; engine
+health ready không chứng minh các điều kiện đó. ACL test chỉ chứng minh file
+fixture; người vận hành vẫn phải bảo vệ thư mục cài đặt/runtime tại máy đích.

@@ -5,7 +5,9 @@ trong `local-agent/chrome-reels-extension/`. Sau `npm ci`, chạy engine riêng 
 `npm run workflow:engine`; xem [hướng dẫn package](local-agent/workflow-engine/README.md).
 Bản WFI-03 có mode integrated với local policy/grant v2 và extension 4.3.0;
 xem [cấu hình grant](docs/WORKFLOW_GRANTS.md). Standalone/v1 giữ tương thích cũ;
-supervisor và durable jobs toàn tuyến chưa triển khai.
+WFI-04 bổ sung [supervisor attach/managed và health](docs/WORKFLOW_SUPERVISOR.md).
+Durable jobs toàn tuyến chưa triển khai. Attach là mặc định; chỉ chuyển managed
+sau khi dừng engine cũ và bảo vệ ACL file env tại máy local.
 
 Workflow bridge: panel **Kịch bản tự động** điều khiển scenario đã lưu trong
 Local Workflow Agent qua HTTP loopback và active lease hiện có. Xem

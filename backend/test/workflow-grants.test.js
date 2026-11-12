@@ -7,11 +7,35 @@ import path from 'node:path';
 import {io} from 'socket.io-client';
 import {createApp} from '../src/server.js';
 import {bindWorkflowV2Socket,createWorkflowV2Client} from '../../local-agent/src/workflow-v2.js';
+import {createWorkflowSupervisor} from '../../local-agent/src/workflow-supervisor.js';
 import fixture from '../../local-agent/workflow-engine/test/helpers/engine.js';
 const {temporary,removeTemporary,startEngine}=fixture;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(check){for(let i=0;i<120;i++){if(await check())return;await pause(50);}assert.fail('Timed out waiting for verified workflow state');}
 const emit=(s,event,p)=>s.timeout(15000).emitWithAck(event,p);
+
+test('membership-filtered engine health strips paths/secrets, expires independently of runner heartbeat, clears offline',async t=>{
+  const core=createApp({dbPath:':memory:',origin:'http://localhost:5173'});await new Promise(r=>core.http.listen(0,'127.0.0.1',r));
+  const base=`http://127.0.0.1:${core.http.address().port}`,password='health-fixture-password-123',sockets=[];
+  const owner=core.db.addUser('health-owner@test',password,'Owner'),viewer=core.db.addUser('health-viewer@test',password,'Viewer');core.db.addUser('health-outsider@test',password,'Other');
+  const device=core.db.enroll(core.db.pair(owner,'Health fixture'));core.db.run('INSERT INTO members VALUES(?,?,?)',device.deviceId,viewer,'viewer');
+  const agent=io(base,{autoConnect:false,transports:['websocket'],auth:{kind:'agent',credential:device.credential}});sockets.push(agent);let beat;
+  t.after(async()=>{clearInterval(beat);for(const s of sockets)s.disconnect();await core.close();});
+  const snapshots={};
+  for(const email of ['health-owner@test','health-viewer@test','health-outsider@test']){
+    const res=await fetch(base+'/api/auth/login',{method:'POST',headers:{Origin:'http://localhost:5173','content-type':'application/json'},body:JSON.stringify({email,password})});
+    const socket=io(base,{autoConnect:false,transports:['websocket'],extraHeaders:{Origin:'http://localhost:5173',Cookie:res.headers.get('set-cookie').split(';')[0]}});sockets.push(socket);socket.on('devices:snapshot',s=>snapshots[email]=s);const ready=once(socket,'connect');socket.connect();await ready;
+  }
+  const ready=once(agent,'connect');agent.connect();await ready;beat=setInterval(()=>agent.emit('agent:heartbeat',{},()=>{}),1000);
+  const cap={protocolVersion:2,agentInstanceId:randomUUID(),engineInstanceId:randomUUID(),engineVersion:'0.2.0',mode:'integrated',operations:['profiles','scenarios','describe','runs','status','run','stop'],policyRevision:1,health:{state:'ready',reasonCode:'READY',checkedAt:Date.now()+999999999,path:'never-relay-path',token:'never-relay-token'},supervisor:{mode:'attach',owned:false,restarts:0,path:'never-relay-path'}};
+  assert.equal((await emit(agent,'workflow:v2:capabilities',cap)).ok,true);
+  const current=()=>snapshots['health-owner@test']?.[0];await until(()=>current()?.workflowSupported);
+  assert.equal(current().workflowHealth.supervisor.mode,'attach');assert(!JSON.stringify(snapshots).includes('never-relay'));
+  assert.equal(snapshots['health-viewer@test'][0].workflowHealth.state,'ready');assert.deepEqual(snapshots['health-outsider@test'],[]);
+  await pause(15500);await until(()=>current()?.workflowHealth?.reasonCode==='STALE');assert.equal(current().workflowSupported,false);assert.equal(current().runnerStatus,'online');
+  await emit(agent,'workflow:v2:capabilities',{...cap,health:{state:'starting',reasonCode:'STARTING'}});await until(()=>current()?.workflowHealth?.state==='starting');assert.equal(current().workflowSupported,false);
+  agent.disconnect();await until(()=>current()?.runnerStatus==='offline');assert.equal(current().workflowHealth,null);
+});
 
 test('real core + adapter + integrated engine: policy, user/browser lease, takeover barrier, disconnect and membership revoke',async t=>{
   const directory=temporary('core-grant-e2e-');
@@ -23,8 +47,8 @@ test('real core + adapter + integrated engine: policy, user/browser lease, takeo
     return {LOCAL_AGENT_MODE:'integrated'};
   }});
   const core=createApp({dbPath:':memory:',origin:'http://localhost:5173'});await new Promise(resolve=>core.http.listen(0,'127.0.0.1',resolve));
-  const url=`http://127.0.0.1:${core.http.address().port}`,sockets=[];let binding,beat;
-  t.after(async()=>{clearInterval(beat);await binding?.close();for(const s of sockets)s.disconnect();await core.close();await engine.close();removeTemporary(directory);});
+  const url=`http://127.0.0.1:${core.http.address().port}`,sockets=[];let binding,beat,supervisor;
+  t.after(async()=>{clearInterval(beat);await binding?.close();await supervisor?.close();for(const s of sockets)s.disconnect();await core.close();await engine.close();removeTemporary(directory);});
   const password='grant-fixture-password-123',owner=core.db.addUser('grant-owner@test',password,'Owner'),operator=core.db.addUser('grant-operator@test',password,'Operator'),viewer=core.db.addUser('grant-viewer@test',password,'Viewer');
   const device=core.db.enroll(core.db.pair(owner,'Fixture'));core.db.run('INSERT INTO members VALUES(?,?,?)',device.deviceId,operator,'operator');core.db.run('INSERT INTO members VALUES(?,?,?)',device.deviceId,viewer,'viewer');
   async function browser(email){const response=await fetch(url+'/api/auth/login',{method:'POST',headers:{Origin:'http://localhost:5173','content-type':'application/json'},body:JSON.stringify({email,password})});assert.equal(response.status,200);const cookie=response.headers.get('set-cookie').split(';')[0];const socket=io(url,{autoConnect:false,transports:['websocket'],extraHeaders:{Origin:'http://localhost:5173',Cookie:cookie}});return {socket,cookie};}
@@ -32,7 +56,8 @@ test('real core + adapter + integrated engine: policy, user/browser lease, takeo
   const agent=io(url,{autoConnect:false,transports:['websocket'],auth:{kind:'agent',credential:device.credential}});let active=null,seen;
   agent.on('session:active',p=>{active=p;});agent.on('session:revoked',()=>{active=null;});agent.on('disconnect',()=>{active=null;});
   let dropRunResponse=false;
-  binding=bindWorkflowV2Socket({socket:agent,getSession:()=>active,client:createWorkflowV2Client({settings:()=>({enabled:true,baseUrl:engine.base,token:engine.token}),fetchImpl:async(url,options)=>{const response=await fetch(url,options);if(dropRunResponse&&options.method==='POST'&&new URL(url).pathname==='/api/v2/runs'&&response.status===202){dropRunResponse=false;await response.arrayBuffer();throw new Error('fixture response lost after acceptance');}return response;}})});
+  supervisor=createWorkflowSupervisor({settings:{enabled:true,baseUrl:engine.base,token:engine.token},config:{mode:'attach'},pollMs:500});void supervisor.start();await until(()=>supervisor.snapshot().state==='ready');
+  binding=bindWorkflowV2Socket({socket:agent,getSession:()=>active,supervisor,client:createWorkflowV2Client({settings:()=>({enabled:true,baseUrl:engine.base,token:engine.token}),fetchImpl:async(url,options)=>{const response=await fetch(url,options);if(dropRunResponse&&options.method==='POST'&&new URL(url).pathname==='/api/v2/runs'&&response.status===202){dropRunResponse=false;await response.arrayBuffer();throw new Error('fixture response lost after acceptance');}return response;}})});
   own.socket.on('devices:snapshot',snapshot=>{seen=snapshot.find(d=>d.id===device.deviceId);});
   for(const socket of [agent,own.socket,op.socket,view.socket,other.socket]){sockets.push(socket);const ready=once(socket,'connect');socket.connect();await ready;}
   beat=setInterval(()=>agent.emit('agent:heartbeat',{},()=>{}),1000);
@@ -46,6 +71,9 @@ test('real core + adapter + integrated engine: policy, user/browser lease, takeo
   assert.equal((await request(op.socket,'run',{scenario:'not-allowed',profile:'Default'},'denied')).status,403);
   assert.equal((await request(op.socket,'run',{scenario:'wait',profile:'Default',variables:{delay:10001}},'denied-value')).status,403);
   const first=await request(op.socket,'run',{scenario:'wait',profile:'Default',variables:{delay:10000}},'run-stable-key');assert.equal(first.ok,true,JSON.stringify(first));
+  const beforeRefresh=core.db.one('SELECT grantJson FROM workflow_control WHERE deviceId=?',device.deviceId).grantJson;
+  await binding.publish();await pause(50);
+  assert.equal(core.db.one('SELECT grantJson FROM workflow_control WHERE deviceId=?',device.deviceId).grantJson,beforeRefresh,'same healthy instance refresh must not revoke an active grant');
   const duplicate=await request(op.socket,'run',{scenario:'wait',profile:'Default',variables:{delay:10000}},'run-stable-key');assert.equal(duplicate.data.runId,first.data.runId);
   const renewed=await emit(op.socket,'session:renew',{deviceId:device.deviceId,sessionId});assert.equal(renewed.ok,true);
   const takeover=await emit(own.socket,'session:request',{deviceId:device.deviceId,force:true});assert.equal(takeover.status,409);

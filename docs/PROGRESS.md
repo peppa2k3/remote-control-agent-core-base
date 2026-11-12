@@ -102,3 +102,17 @@ Không chuyển prompt 001 sang completed chỉ vì source tồn tại: cần đ
 2026-10-15: Đã cài CodeGraph v1.6.2 trên máy phát triển, lập chỉ mục source và cấu hình Codex cho repo. Tối ưu truy vấn snapshot presence theo user; chưa nghiệm thu VPS/local thật.
 
 2026-11-06: Bổ sung CI/CD starter trong `.github/workflows`, Compose production một app dùng SQLite volume và script deploy có health verification/rollback. Chưa chạy trên VPS thật; hướng dẫn secrets tại `docs/CICD_DEPLOY.md`.
+## 2026-11-12 — WFI-04 supervisor và health
+
+Đã tích hợp daemon logic từ source tham chiếu vào supervisor của Local Runner:
+attach mặc định, managed opt-in với Node/entrypoint/cwd cố định, env allowlist,
+private token file ACL, IPC ownership, startup deadline/backoff/restart cap.
+Engine 0.3.0 thêm lifecycleVersion=1, khóa data directory và graceful drain;
+crash giữ unknown, đổi instance và không replay. Backend/frontend nhận health
+đã lọc membership, stale độc lập heartbeat; refresh healthy không revoke grant.
+
+Acceptance local Windows đã có test process thật, concurrent controller/data
+lock, crash đang chạy, wrong auth/version, timeout/cap và NTFS ACL thật. Full
+test/build và Chrome fixture được ghi tại [VALIDATION](VALIDATION.md).
+Hướng dẫn [attach → managed](WORKFLOW_SUPERVISOR.md). Không sửa env thật, deploy
+VPS, cài task hoặc restart engine/runner người dùng. WFI-05–08 còn planned.

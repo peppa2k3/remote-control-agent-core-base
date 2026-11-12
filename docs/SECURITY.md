@@ -43,3 +43,14 @@ frontend không gửi shell, steps, API URL hoặc uploadPath. Xem [WORKFLOW](WO
 về retry, giới hạn và hành vi workflow sau khi mất phiên.
 Không nhận code script tùy ý qua API/Socket.IO. Workflow scenario dùng bridge
 giới hạn ở trên; Remote Terminal là luồng riêng, chịu các ràng buộc lease và PTY.
+# WFI-04: process supervisor (2026-11-12)
+
+Managed child chỉ được spawn bởi runner từ Node/entrypoint/cwd cố định với env
+allowlist và shell=false. Token đọc từ engine env riêng, kiểm tra NTFS ACL bằng
+SID (hoặc POSIX mode 600), không rotate engine đang chạy. IPC nonce + HTTP instance
+phải khớp trước readiness; shutdown chỉ child sở hữu. Khóa SQLite chống hai
+controller/engine ghi chung runtime, không kill chủ port không rõ ownership.
+Health đến VPS chỉ gồm metadata được chọn và thời gian nhận tại server; member
+filter/freshness không bị thay thế bởi runner heartbeat. Crash/thiếu receipt giữ
+unknown/barrier và không replay. Engine readiness không xác nhận phiên Windows
+tương tác. Xem [WORKFLOW_SUPERVISOR](WORKFLOW_SUPERVISOR.md).

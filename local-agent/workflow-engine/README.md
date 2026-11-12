@@ -1,4 +1,4 @@
-# Workflow Engine 0.2.0 đi kèm core
+# Workflow Engine 0.3.0 đi kèm core
 
 WFI-03 bổ sung mode integrated với policy local/grant v2. Xem
 [cấu hình integrated](docs/INTEGRATED_MODE.md). Env example chọn integrated;
@@ -94,3 +94,5 @@ npm run test:browser -w @rca/workflow-engine
 Lệnh đầu ở root core chạy Node-only suite với temp data; lệnh thứ hai dùng
 Playwright dev và Chrome test context riêng. Extension E2E thuộc WFI-05, không
 coi fixture ACK là Chrome extension thật. Không tự chạy migration/startup task.
+
+WFI-04 adds authenticated lifecycleVersion=1 health and owned IPC shutdown. Core attach/managed instructions: `docs/WORKFLOW_SUPERVISOR.md` in the core repository. The standalone daemon still starts using `index.js --daemon`.

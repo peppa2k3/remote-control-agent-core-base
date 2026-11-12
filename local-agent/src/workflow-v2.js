@@ -14,23 +14,23 @@ export function createWorkflowV2Client({settings=readWorkflowSettings,fetchImpl=
       return result;
     }catch(error){if(error.status)throw error;fail('UNAVAILABLE',503);}
   }
-  return {http,async health(){const h=await http('/health');if(h.protocolVersion!==2||h.mode!=='integrated'||!uuid(h.engineInstanceId))fail('INCOMPATIBLE');return h;}};
+  return {http,async health({signal}={}){const h=await http('/health','GET',undefined,{},signal);if(h.protocolVersion!==2||h.mode!=='integrated'||!uuid(h.engineInstanceId))fail('INCOMPATIBLE');return h;}};
 }
 
-export function bindWorkflowV2Socket({socket,getSession,client=createWorkflowV2Client()}){
+export function bindWorkflowV2Socket({socket,getSession,client=createWorkflowV2Client(),supervisor}){
   const agentInstanceId=randomUUID(),pending=new Set();let engine=null,grant=null,timer=null,control=Promise.resolve(),closed=false,epoch=0;
   const alive=id=>!closed&&socket.connected&&getSession()?.sessionId===id&&Date.now()<getSession().expires;
   function abort(){epoch++;clearTimeout(timer);for(const controller of pending)controller.abort();}
   function queue(fn){const task=control.then(fn);control=task.catch(()=>{});return task;}
   async function publish(){
-    try{engine=await client.health();if(!closed&&socket.connected)socket.emit('workflow:v2:capabilities',{protocolVersion:2,agentInstanceId,engineInstanceId:engine.engineInstanceId,engineVersion:engine.engineVersion,mode:'integrated',operations:Object.keys(fields),policyRevision:engine.policyRevision,health:engine.health});}
-    catch{engine=null;if(!closed&&socket.connected)socket.emit('workflow:v2:capabilities',{protocolVersion:2,agentInstanceId,engineInstanceId:null,engineVersion:'unknown',mode:'integrated',operations:[],policyRevision:null,health:{state:'unconfigured',reasonCode:'UNAVAILABLE',checkedAt:Date.now()}});}
+    try{const next=supervisor?supervisor.getHealth():await client.health();if(!next)throw Error('UNAVAILABLE');if(engine?.engineInstanceId!==next.engineInstanceId||next.health?.state!=='ready')lost();engine=next;if(!closed&&socket.connected)socket.emit('workflow:v2:capabilities',{protocolVersion:2,agentInstanceId,engineInstanceId:engine.engineInstanceId,engineVersion:engine.engineVersion,mode:'integrated',operations:Object.keys(fields),policyRevision:engine.policyRevision,health:{...engine.health,...(supervisor?{state:supervisor.snapshot().state,reasonCode:supervisor.snapshot().reasonCode}:{} )},...(supervisor?{supervisor:{mode:supervisor.snapshot().mode,owned:supervisor.snapshot().owned,restarts:supervisor.snapshot().restarts}}:{})});}
+    catch{if(engine)lost();engine=null;if(!closed&&socket.connected)socket.emit('workflow:v2:capabilities',{protocolVersion:2,agentInstanceId,engineInstanceId:null,engineVersion:'unknown',mode:'integrated',operations:[],policyRevision:null,health:{state:supervisor?.snapshot().state||'unconfigured',reasonCode:supervisor?.snapshot().reasonCode||'UNAVAILABLE',checkedAt:Date.now()},...(supervisor?{supervisor:{mode:supervisor.snapshot().mode,owned:supervisor.snapshot().owned,restarts:supervisor.snapshot().restarts}}:{})});}
   }
   async function revoke(p){const h=await client.health();engine=h;return client.http(`/grants/${p.grantId}/revoke`,'POST',{engineInstanceId:h.engineInstanceId,fence:p.fence,reason:p.reason||'offline'});}
   const onGrant=(p,ack)=>{
     const captured=epoch;
     queue(async()=>{
-      if(captured!==epoch||!alive(p?.sessionId)||p?.protocolVersion!==2||p.agentInstanceId!==agentInstanceId||!uuid(p.grantId)||p.engineInstanceId!==engine?.engineInstanceId||p.expiresAt>getSession().expires||p.issuedAt>Date.now()+2000||Date.now()-p.issuedAt>10000)fail('LEASE_REQUIRED',403);
+      if(supervisor&&supervisor.snapshot().state!=='ready'||captured!==epoch||!alive(p?.sessionId)||p?.protocolVersion!==2||p.agentInstanceId!==agentInstanceId||!uuid(p.grantId)||p.engineInstanceId!==engine?.engineInstanceId||p.expiresAt>getSession().expires||p.issuedAt>Date.now()+2000||Date.now()-p.issuedAt>10000)fail('LEASE_REQUIRED',403);
       if(grant&&(grant.grantId!==p.grantId||grant.fence!==p.fence))fail('BUSY');
       grant=p;const expiresAt=Math.min(p.expiresAt-2000,getSession().expires);if(expiresAt<=Date.now())fail('LEASE_REQUIRED',403);
       const result=await client.http(`/grants/${p.grantId}`,'PUT',{...p,issuedAt:Date.now(),expiresAt});
@@ -46,7 +46,7 @@ export function bindWorkflowV2Socket({socket,getSession,client=createWorkflowV2C
   const onRequest=async(p,ack)=>{
     if(typeof ack!=='function')return;let controller;
     try{
-      if(!p||p.protocolVersion!==2||p.agentInstanceId!==agentInstanceId||p.engineInstanceId!==engine?.engineInstanceId||p.grantId!==grant?.grantId||p.fence!==grant?.fence||!alive(p.sessionId)||p.sessionId!==grant.sessionId||Date.now()>=p.deadline)fail('LEASE_REQUIRED',403);
+      if(supervisor&&supervisor.snapshot().state!=='ready'||!p||p.protocolVersion!==2||p.agentInstanceId!==agentInstanceId||p.engineInstanceId!==engine?.engineInstanceId||p.grantId!==grant?.grantId||p.fence!==grant?.fence||!alive(p.sessionId)||p.sessionId!==grant.sessionId||Date.now()>=p.deadline)fail('LEASE_REQUIRED',403);
       const allowed=fields[p.operation];if(!allowed||!p.params||typeof p.params!=='object'||Array.isArray(p.params)||Object.keys(p.params).some(k=>!allowed.includes(k))||Buffer.byteLength(JSON.stringify(p.params))>12000)fail('INVALID_REQUEST',400);
       if(pending.size>=4)fail('BUSY',429);controller=new AbortController();pending.add(controller);const captured=epoch;
       const headers={'X-Workflow-Grant':p.grantId,'X-Workflow-Fence':String(p.fence),'X-Workflow-Engine-Instance':p.engineInstanceId};
@@ -64,5 +64,6 @@ export function bindWorkflowV2Socket({socket,getSession,client=createWorkflowV2C
   const revoked=p=>{if(grant?.sessionId===p?.sessionId)lost();};
   const active=p=>{if(grant&&grant.sessionId!==p?.sessionId)lost();};
   socket.on('connect',publish);socket.on('workflow:v2:grant',onGrant);socket.on('workflow:v2:revoke',onRevoke);socket.on('workflow:v2:dispatch',onRequest);socket.on('disconnect',lost);socket.on('session:revoked',revoked);socket.on('session:active',active);
-  return {publish,agentInstanceId,async close(){closed=true;lost();await control;socket.off('connect',publish);socket.off('workflow:v2:grant',onGrant);socket.off('workflow:v2:revoke',onRevoke);socket.off('workflow:v2:dispatch',onRequest);socket.off('disconnect',lost);socket.off('session:revoked',revoked);socket.off('session:active',active);}};
+  const unsubscribe=supervisor?.subscribe(()=>{if(supervisor.snapshot().state!=='ready')lost();void publish();});
+  return {publish,agentInstanceId,async close(){unsubscribe?.();closed=true;lost();await control;socket.off('connect',publish);socket.off('workflow:v2:grant',onGrant);socket.off('workflow:v2:revoke',onRevoke);socket.off('workflow:v2:dispatch',onRequest);socket.off('disconnect',lost);socket.off('session:revoked',revoked);socket.off('session:active',active);}};
 }

@@ -31,9 +31,13 @@ export default function WorkflowPanel({device,sessionId,connected,request}) {
     const result=await call('run',params,retry.current.requestId);
     commit(()=>{setRun(result);retry.current=null;});
   }
-  if(!device.workflowSupported)return <p className="workflow-note">Workflow: Local Agent chưa bật kết nối API.</p>;
+  const health=device.workflowHealth;
+  const labels={configured:'Đã cấu hình',starting:'Đang khởi động',ready:'Engine sẵn sàng',degraded:'Cần kiểm tra',stopping:'Đang dừng',failed:'Lỗi',unconfigured:'Chưa sẵn sàng'};
+  const healthNote=<div className="workflow-note" role="status"><p>Workflow: {device.runnerStatus!=='online'?'Runner offline':health?labels[health.state]||'Chưa xác định':'Chưa có health engine'}{health?.supervisor?` · ${health.supervisor.mode}`:''}{health?.reasonCode?` · ${health.reasonCode}`:''}</p><small>Engine sẵn sàng chưa xác nhận phiên Windows tương tác, Chrome hoặc extension sẵn sàng.</small></div>;
+  if(!device.workflowSupported)return healthNote;
   return <section className="workflow-panel" aria-label="Kịch bản tự động">
     <h3>Kịch bản tự động</h3>
+    {healthNote}
     {!canControl&&<p>Yêu cầu phiên điều khiển để chọn và chạy kịch bản.</p>}
     <button className="secondary" disabled={!canControl||busy} onClick={()=>perform(load)}>Tải danh sách kịch bản</button>
     <div className="workflow-fields">

@@ -22,7 +22,10 @@ const {createIntegratedApi} = require('./http/integrated-api');
 const {parseStrictJson} = require('./http/strict-json');
 const mode = process.env.LOCAL_AGENT_MODE || 'standalone';
 if (!['standalone','integrated'].includes(mode)) throw new Error('Invalid LOCAL_AGENT_MODE');
-let integrated = null;
+let integrated = null, closing = false;
+fs.mkdirSync(dataDir,{recursive:true});
+const instanceLock=new (require('node:sqlite').DatabaseSync)(path.join(dataDir,'engine-instance.sqlite'));
+instanceLock.exec('PRAGMA busy_timeout=0; BEGIN EXCLUSIVE');
 // Core uses its paired Socket.IO runner. Never instantiate legacy HTTP polling
 // or read its stored credentials in this distribution.
 const daemon = process.argv[2] === '--daemon' || process.env.LOCAL_AGENT_DAEMON === '1';
@@ -74,7 +77,7 @@ function readBody(request) {
 const automation = createAutomationApi({ workflows, scenarios, profiles, readBody });
 if (mode === 'integrated') {
   if (!automation.enabled) throw new Error('Integrated mode requires LOCAL_AGENT_API_TOKEN');
-  integrated = createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,policyFile:path.resolve(__dirname,'..',process.env.LOCAL_AGENT_POLICY_FILE || path.join(dataDir,'workflow-policy.json')),authorized:automation.authorized,readBody});
+  integrated = createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,policyFile:path.resolve(__dirname,'..',process.env.LOCAL_AGENT_POLICY_FILE || path.join(dataDir,'workflow-policy.json')),authorized:automation.authorized,readBody,isStopping:()=>closing});
 }
 const dashboardToken = randomBytes(32).toString('hex');
 function dashboardAuthorized(request) {
@@ -92,6 +95,7 @@ const server = http.createServer(async (request, response) => {
   try { url = new URL(request.url, `http://127.0.0.1:${port}`); }
   catch { return json(400, { error: 'Invalid request URL' }); }
   const route = url.pathname;
+  if(closing && !['/api/v2/health','/result','/state'].includes(route) && !(route.startsWith('/api/v2/grants/') && (request.method==='GET'||route.endsWith('/revoke'))))return json(503,{error:'STOPPING'});
   if (request.headers.host !== `127.0.0.1:${port}` && request.headers.host !== `localhost:${port}`) return json(403, { error: 'Host not allowed' });
   const origin = request.headers.origin;
   if (origin && origin !== `http://127.0.0.1:${port}` && !/^chrome-extension:\/\/[a-z]+$/.test(origin)) return json(403, { error: 'Origin not allowed' });
@@ -226,6 +230,7 @@ const performanceTimer = setInterval(() => {
 }, 2000);
 performanceTimer.unref();
 profileCache.ready.then(() => { if (closing) return; server.listen(port, '127.0.0.1', () => {
+  if(process.send && process.env.LOCAL_AGENT_SUPERVISOR_ID)process.send({type:'workflow:ready',supervisorId:process.env.LOCAL_AGENT_SUPERVISOR_ID,engineInstanceId:integrated?.instance});
   console.log(`Local agent ready. Default Chrome profile: ${profile}.`);
   console.log(`Dashboard: http://127.0.0.1:${port}`);
   console.log(`Content manager: http://127.0.0.1:${port}/content`);
@@ -257,16 +262,29 @@ terminal?.on('line', line => {
   } catch (error) { console.error(error.message); }
   terminal.prompt();
 });
-let closing = false;
 async function shutdown() {
   if (closing) return; closing = true;
   integrated?.close();
-  terminal?.close(); clearInterval(expiry); clearInterval(performanceTimer); eventLoop.disable();
+  terminal?.close();
   profiles().forEach(item => workflows.stop(item.directory));
-  server.close(); server.closeIdleConnections();
-  const timeout = setTimeout(() => process.exit(process.exitCode || 0), 15000); timeout.unref();
+  const deadline=globalThis.performance.now()+10000;
+  while(globalThis.performance.now()<deadline){
+    integrated?.tick();
+    if(workflows.allQuiescent() && (!integrated || integrated.quiescent()))break;
+    await new Promise(r=>setTimeout(r,50));
+  }
+  const quiescent=workflows.allQuiescent() && (!integrated || integrated.quiescent());
+  clearInterval(expiry); clearInterval(performanceTimer); eventLoop.disable();
+  const timeout=setTimeout(()=>process.exit(1),5000);timeout.unref();
+  await new Promise(resolve=>{server.close(resolve);server.closeIdleConnections();});
   await mongoSync.close();
+  instanceLock.close();
+  if(process.connected){await new Promise(resolve=>process.send({type:'workflow:stopped',supervisorId:process.env.LOCAL_AGENT_SUPERVISOR_ID,quiescent},resolve));process.disconnect();}
+  clearTimeout(timeout);
+
 }
 terminal?.on('close', () => { void shutdown(); });
 process.on('SIGTERM', () => { void shutdown(); });
 process.on('SIGINT', () => { void shutdown(); });
+
+if(process.env.LOCAL_AGENT_SUPERVISOR_ID){process.on('message',m=>{if(m?.type==='workflow:shutdown'&&m.supervisorId===process.env.LOCAL_AGENT_SUPERVISOR_ID)void shutdown();});process.on('disconnect',()=>void shutdown());}

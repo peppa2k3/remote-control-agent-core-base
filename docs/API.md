@@ -78,7 +78,7 @@ Không thêm health/grant/profile-open API v2 ở WFI-02. V1 Idempotency-Key ở
 HTTP 202 chỉ accepted và hủy HTTP không dừng workflow đã nhận.
 # WFI-03 integrated API và grant
 
-Mode integrated (engine 0.2.0) implement HTTP loopback mới với Bearer local:
+Mode integrated (engine 0.3.0) implement HTTP loopback mới với Bearer local:
 GET `/api/v2/health`; PUT/GET `/api/v2/grants/:grantId`; POST
 `/api/v2/grants/:grantId/revoke`; GET profiles/scenarios/describe/runs/status,
 POST runs và runs/:runId/stop dưới `/api/v2`. Catalog/run/status/stop cần headers
@@ -97,4 +97,19 @@ API v1 và Bearer token trên API dashboard cũ bị chặn trong integrated mod
 dashboard session local và extension protocol vẫn riêng. Extension 4.3.0 gửi
 settlementVersion=1 và settled receipt; thiếu/false không advance, không nhả khóa.
 HTTP JSON engine chặn duplicate/prototype keys. Chưa implement openProfile,
-GET jobs, report/reconcile/queue/retention toàn tuyến hoặc supervisor.
+GET jobs, report/reconcile/queue/retention toàn tuyến.
+
+WFI-04: `GET /api/v2/health` thêm `lifecycleVersion:1`; vẫn yêu cầu Bearer token
+loopback. Response gồm engineVersion/engineInstanceId, operations, policyRevision,
+health state/reasonCode/checkedAt. Managed còn kiểm tra instance qua IPC của child.
+Không có HTTP endpoint cấu hình/start supervisor từ frontend.
+
+`workflow:v2:capabilities` thêm metadata `supervisor:{mode,owned,restarts}`.
+Backend chỉ giữ các trường được chọn, reason thuộc allowlist, version dạng semver,
+policyRevision là integer; bỏ nested path/token và dùng thời gian nhận tại server.
+`devices:snapshot[].workflowHealth` gồm state, reasonCode, checkedAt, engineVersion,
+engineInstanceId, supervisor; chỉ trả trong snapshot đã lọc membership. Offline
+trả null; quá 15 giây không có health thì degraded/STALE và workflowSupported=false.
+Runner heartbeat không gia hạn health. Refresh cùng instance/policy ready không
+thu hồi grant hiện hành; đổi instance/policy hoặc mất ready thu hồi grant.
+Các state: configured/starting/ready/degraded/stopping/failed/unconfigured.

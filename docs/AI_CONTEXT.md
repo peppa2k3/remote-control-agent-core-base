@@ -16,3 +16,9 @@ thiết bị là unknown, không kết luận máy tắt nguồn.
 Starter: React/Vite vì dashboard không cần SSR, Express + Socket.IO, SQLite single-process. Có thể chuyển PostgreSQL khi scale bằng prompt riêng; không cần Redis, Kafka, Kubernetes ở bước đầu. Nếu có nhu cầu Next.js, port FE sau core, không đổi protocol.
 
 Kịch bản tương lai: mở website, Playwright test web của mình, đổi tên/sắp xếp file theo allowlist thư mục, upload nội dung. Không nhận tùy ý shell hoặc eval từ web. AI/giọng nói ở giai đoạn sau chỉ tạo kế hoạch JSON qua whitelist, không thực thi command trực tiếp.
+# Cập nhật WFI-04 — 2026-11-12
+
+Engine 0.3.0 có lifecycle health và IPC shutdown. Runner có supervisor attach
+mặc định/managed opt-in; backend/frontend nhận health đã lọc membership, stale
+sau 15 giây và offline trả null. Xem [WORKFLOW_SUPERVISOR](WORKFLOW_SUPERVISOR.md).
+OpenProfile/extension readiness và durable jobs/report vẫn thuộc WFI-05–08.

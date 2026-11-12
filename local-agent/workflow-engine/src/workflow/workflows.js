@@ -250,6 +250,7 @@ function createWorkflows({ scenarios, defaultProfile, profiles, openFolder, down
   }
   return { resolveConfirmation, usesScenario, session, status, start, stop, connect, next, result, expire, getRun, stopRun,
     quiescent(id) { const track=tracking.get(id); return !!track && !track.local && !track.web && !track.uncertain; },
+    allQuiescent() { return [...tracking.values()].every(t=>!t.local&&!t.web&&!t.uncertain); },
     uncertain(id) { return tracking.get(id)?.uncertain === true; },
     listRuns: profile => activity ? activity.listRuns(profile) : [...completed.values()].filter(run => !profile || run.profile === profile).reverse() };
 }

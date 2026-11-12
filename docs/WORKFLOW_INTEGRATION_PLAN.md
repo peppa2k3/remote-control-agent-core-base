@@ -10,8 +10,9 @@ WFI-01 đã chốt thiết kế ngày 2026-11-11: [ADR-001](adr/001-workflow-int
 [inventory import/test](WORKFLOW_IMPORT_INVENTORY.md) và
 [source checksums](workflow-integration-source.json). Các quyết định bên dưới
 được cụ thể hóa bởi ADR; WFI-02 completed package/source.
-WFI-03 hiện đã implement policy/grant subset, engine 0.2.0 và extension 4.3.0;
-WFI-04–08 còn planned. Xem [cấu hình thực tế](WORKFLOW_GRANTS.md) và
+WFI-03 đã implement policy/grant subset. WFI-04 thêm supervisor/health,
+engine 0.3.0 và giữ extension 4.3.0; WFI-05–08 còn planned. Xem
+[supervisor thực tế](WORKFLOW_SUPERVISOR.md), [cấu hình grant](WORKFLOW_GRANTS.md) và
 [hướng dẫn engine](../local-agent/workflow-engine/README.md). Các bảng khảo sát
 bên dưới ghi baseline trước triển khai, không là trạng thái API hiện tại.
 

@@ -2,7 +2,7 @@
 
 ## Integrated mode WFI-03
 
-Engine 0.2.0 + runner WORKFLOW_AGENT_PROTOCOL=2 hỗ trợ policy/grant theo active
+Engine 0.3.0 + runner WORKFLOW_AGENT_PROTOCOL=2 hỗ trợ policy/grant theo active
 lease. Xem [cấu hình và phạm vi](WORKFLOW_GRANTS.md). Env examples mới opt-in;
 không sửa env/installation đang chạy tự động. Protocol 1/standalone dưới đây vẫn
 giữ behavior cũ. Extension integrated cần 4.3.0, reload và refresh trang cũ.
@@ -17,8 +17,10 @@ tục” trong phần lịch sử bên dưới chỉ áp dụng standalone/proto
 Không cần copy engine từ `ref/`. Root `npm ci` cài workspace
 `@rca/workflow-engine`; MongoDB driver runtime pin 7.7.0, Playwright chỉ dev.
 Tự tạo `local-agent/workflow-engine/.env` từ example, cấu hình API token local,
-rồi chạy `npm run workflow:engine` ở root. Lệnh này chạy daemon riêng, chưa tự
-được Local Runner supervise. `npm run agent` chỉ chạy `@rca/local-agent`.
+rồi chạy `npm run workflow:engine` ở root cho attach. Lệnh này chạy daemon riêng.
+`npm run agent` chạy `@rca/local-agent`; WFI-04 cho phép chọn managed để runner
+khởi động engine đóng gói. Không chạy cả hai cơ chế đồng thời; xem
+[hướng dẫn attach → managed và ACL](WORKFLOW_SUPERVISOR.md).
 
 Trong cấu hình runner dùng `WORKFLOW_AGENT_ENV_FILE=./workflow-engine/.env`,
 resolve từ `local-agent/`. Giữ đường dẫn env engine ngoài repo nếu đang attach
@@ -34,7 +36,7 @@ credential đó. Trang `/remote` chỉ giải thích kết nối core.
 
 Phần WFI-02 và CLI dưới đây mô tả API/bridge v1 trong standalone/protocol 1;
 accepted run có thể tiếp tục khi mất lease. Integrated v2 theo mục WFI-03 ở trên;
-supervisor và jobs bền vững toàn tuyến còn planned.
+supervisor đã có từ WFI-04; jobs bền vững toàn tuyến còn planned.
 
 Panel **Kịch bản tự động** gọi API của Local Workflow Agent trên cùng máy với
 terminal agent. Luồng: browser → Socket.IO VPS → terminal agent → HTTP loopback

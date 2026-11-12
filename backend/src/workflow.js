@@ -58,5 +58,5 @@ export function createWorkflowRelay({agents, db, authenticate, broadcast}) {
       } finally { if (reserved) pending--; }
     });
   }
-  return {bindAgent, bindBrowser,blocked:v2.blocked,revoke:v2.revoke,renew:v2.renew,tick:v2.tick,close:v2.close,supported(deviceId) { return v2.handles(deviceId)?v2.supported(deviceId):capabilities.get(deviceId)?.configured === true; }};
+  return {bindAgent, bindBrowser,health:v2.health,blocked:v2.blocked,revoke:v2.revoke,renew:v2.renew,tick:v2.tick,close:v2.close,supported(deviceId) { return v2.handles(deviceId)?v2.supported(deviceId):capabilities.get(deviceId)?.configured === true; }};
 }

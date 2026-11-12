@@ -9,7 +9,7 @@ const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab]
 const key=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(v);
 const operations=['profiles','scenarios','describe','runs','status','run','stop'];
 
-function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,policyFile,authorized,readBody,now=Date.now,monotonic=()=>performance.now()}){
+function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,policyFile,authorized,readBody,isStopping=()=>false,now=Date.now,monotonic=()=>performance.now()}){
   const instance=randomUUID(),file=path.join(dataDir,'workflow-grants.json');
   const policy=createRemotePolicy({file:policyFile,scenariosDir,scenarios});
   const state=fs.existsSync(file)?parseStrictJson(fs.readFileSync(file,'utf8')):{version:1,fence:0,deviceId:null,grants:{},runs:{}};
@@ -68,7 +68,7 @@ function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,
     tick();const route=url.pathname.slice('/api/v2'.length);
     if(req.method==='GET'&&route==='/health'){
       let revision=null,ready=false;try{revision=policy.load().revision;ready=true;}catch{}
-      return json(200,{protocolVersion:2,engineVersion:require('../../package.json').version,engineInstanceId:instance,mode:'integrated',operations,policyRevision:revision,legacyRemoteConfigPresent:fs.existsSync(path.join(dataDir,'remote.json')),health:{state:ready?'ready':'unconfigured',reasonCode:ready?'READY':'POLICY_DENIED',checkedAt:now()}});
+      return json(200,{protocolVersion:2,lifecycleVersion:1,engineVersion:require('../../package.json').version,engineInstanceId:instance,mode:'integrated',operations,policyRevision:revision,legacyRemoteConfigPresent:fs.existsSync(path.join(dataDir,'remote.json')),health:{state:isStopping()?'stopping':Object.values(state.runs).some(r=>r.unknown)?'degraded':ready?'ready':'unconfigured',reasonCode:isStopping()?'STOPPING':Object.values(state.runs).some(r=>r.unknown)?'UNKNOWN_OUTCOME':ready?'READY':'POLICY_DENIED',checkedAt:now()}});
     }
     const gm=/^\/grants\/([a-f0-9-]{36})(\/revoke)?$/.exec(route);
     if(gm&&uuid(gm[1])){
@@ -107,6 +107,6 @@ function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,
     if(rm&&uuid(rm[1])){const r=state.runs[rm[1]];if(!visible(r,g))fail('NOT_FOUND',404);if(req.method==='GET'&&!rm[2])return json(200,project(r));if(req.method==='POST'&&rm[2]){const body=await readBody(req);if(!exact(body,['jobId'])||!uuid(body.jobId)||!key(req.headers['idempotency-key']))fail('INVALID_REQUEST',400);workflows.stopRun(r.runId);tick();return json(r.quiescent?200:202,project(r));}}
     fail('NOT_FOUND',404);
   }
-  return {handle,authorize,tick,instance,close(){for(const g of Object.values(state.grants))revoke(g);tick();}};
+  return {handle,authorize,tick,instance,quiescent:()=>Object.values(state.runs).every(r=>r.quiescent),close(){for(const g of Object.values(state.grants))revoke(g);tick();}};
 }
 module.exports={createIntegratedApi};
