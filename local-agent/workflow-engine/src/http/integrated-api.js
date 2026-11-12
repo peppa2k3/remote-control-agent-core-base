@@ -7,9 +7,9 @@ const {createRemotePolicy,fail,exact,object}=require('../workflow/remote-policy'
 const {parseStrictJson}=require('./strict-json');
 const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v);
 const key=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(v);
-const operations=['profiles','scenarios','describe','runs','status','run','stop'];
+const operations=['profiles','scenarios','describe','runs','status','run','stop','openProfile'];
 
-function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,policyFile,authorized,readBody,isStopping=()=>false,now=Date.now,monotonic=()=>performance.now()}){
+function createIntegratedApi({profileBridge,workflows,scenarios,profiles,scenariosDir,dataDir,policyFile,authorized,readBody,isStopping=()=>false,now=Date.now,monotonic=()=>performance.now()}){
   const instance=randomUUID(),file=path.join(dataDir,'workflow-grants.json');
   const policy=createRemotePolicy({file:policyFile,scenariosDir,scenarios});
   const state=fs.existsSync(file)?parseStrictJson(fs.readFileSync(file,'utf8')):{version:1,fence:0,deviceId:null,grants:{},runs:{}};
@@ -38,7 +38,7 @@ function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,
     if(changed)save();
   }
   function active(id,fence){tick();const grant=state.grants[id];if(!grant||grant.state!=='active'||grant.fence!==fence||grant.fence!==state.fence||grant.engineInstanceId!==instance)fail('LEASE_REQUIRED');return grant;}
-  function authorize(runId,step){const r=remoteRun(runId);if(!r)return;active(r.grantId,r.fence);policy.scenario(r.scenario,r.profile);if(step)policy.checkStep(step);}
+  function authorize(runId,step){const r=remoteRun(runId);if(!r)return;active(r.grantId,r.fence);policy.scenario(r.scenario,r.profile);if(step){policy.checkStep(step);if(profileBridge?.webStep(step))profileBridge.requireReady(r.profile,profileBridge.client(r.profile));}}
   function grantHeaders(req){if(req.headers['x-workflow-engine-instance']!==instance)fail('STALE_INSTANCE',409);const fence=Number(req.headers['x-workflow-fence']);if(!Number.isSafeInteger(fence))fail('STALE_FENCE',409);return active(req.headers['x-workflow-grant'],fence);}
   function put(id,body){
     if(!exact(body,['protocolVersion','grantId','sessionId','deviceId','userId','browserId','agentInstanceId','engineInstanceId','fence','seq','issuedAt','expiresAt'])||body.protocolVersion!==2||body.grantId!==id||![id,body.sessionId,body.deviceId,body.userId,body.agentInstanceId].every(uuid)||typeof body.browserId!=='string'||!body.browserId||body.browserId.length>128||body.engineInstanceId!==instance)fail('INVALID_GRANT',400);
@@ -82,7 +82,12 @@ function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,
       fail('METHOD_NOT_ALLOWED',405);
     }
     const g=grantHeaders(req);
-    if(req.method==='GET'&&route==='/profiles')return json(200,{profiles:profiles().filter(p=>policy.load().profiles.some(v=>v.id===p.directory)).map(p=>{const s=workflows.status(p.directory);return {directory:p.directory,name:p.directory,extensionConnected:s.extensionConnected&&s.settlementVersion===1};})});
+    if(req.method==='GET'&&route==='/profiles')return json(200,{profiles:profiles().filter(p=>policy.load().profiles.some(v=>v.id===p.directory)).map(p=>({directory:p.directory,name:p.directory,allowOpen:policy.load().profiles.find(v=>v.id===p.directory).allowOpen,extensionConnected:profileBridge?profileBridge.status(p.directory).state==='ready':workflows.status(p.directory).extensionConnected,readiness:profileBridge?.status(p.directory)||null}))});
+    if(req.method==='POST'&&route==='/profiles/open'){
+      const body=await readBody(req);if(!exact(body,['profile'])||typeof body.profile!=='string')fail('INVALID_REQUEST',400);
+      if(!profileBridge)fail('INCOMPATIBLE',409);
+      return json(200,await profileBridge.open(body.profile,()=>active(g.grantId,g.fence)));
+    }
     if(req.method==='GET'&&route==='/scenarios')return json(200,{names:policy.catalog()});
     const describe=/^\/scenarios\/([a-z0-9][a-z0-9_-]{0,63})$/.exec(route);
     if(req.method==='GET'&&describe){const s=policy.scenario(describe[1]);return json(200,{name:describe[1],steps:s.source.steps.length,variables:Object.fromEntries(s.rule.publicDefaults.filter(k=>Object.hasOwn(s.source.variables||{},k)).map(k=>{const v=s.source.variables[k];policy.prepare(describe[1],s.rule.profiles[0],{[k]:v});return [k,v];}))});}
@@ -92,6 +97,7 @@ function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,
       if(!exact(body,['jobId','scenario','profile','variables','timeoutMs'])||!uuid(body.jobId)||!key(requestId)||typeof body.scenario!=='string'||!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(body.scenario)||typeof body.profile!=='string'||!/^(Default|Profile \d+)$/.test(body.profile)||body.timeoutMs!==undefined&&(!Number.isSafeInteger(body.timeoutMs)||body.timeoutMs<1||body.timeoutMs>86400000))fail('INVALID_REQUEST',400);
       if(Buffer.byteLength(JSON.stringify(body))>13000)fail('TOO_LARGE',413);
       const prepared=policy.prepare(body.scenario,body.profile,body.variables===undefined?{}:body.variables);
+      if(profileBridge&&prepared.prepared.steps.some(profileBridge.webStep))profileBridge.requireReady(body.profile);
       const fingerprint=createHash('sha256').update(JSON.stringify(body,(_,v)=>object(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v)).digest('hex');
       const existing=Object.values(state.runs).find(r=>r.requestId===requestId&&r.userId===g.userId);
       if(existing){if(existing.fingerprint!==fingerprint||existing.grantId!==g.grantId)fail('IDEMPOTENCY_CONFLICT',409);return json(200,project(existing));}
@@ -107,6 +113,6 @@ function createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,
     if(rm&&uuid(rm[1])){const r=state.runs[rm[1]];if(!visible(r,g))fail('NOT_FOUND',404);if(req.method==='GET'&&!rm[2])return json(200,project(r));if(req.method==='POST'&&rm[2]){const body=await readBody(req);if(!exact(body,['jobId'])||!uuid(body.jobId)||!key(req.headers['idempotency-key']))fail('INVALID_REQUEST',400);workflows.stopRun(r.runId);tick();return json(r.quiescent?200:202,project(r));}}
     fail('NOT_FOUND',404);
   }
-  return {handle,authorize,tick,instance,quiescent:()=>Object.values(state.runs).every(r=>r.quiescent),close(){for(const g of Object.values(state.grants))revoke(g);tick();}};
+  return {handle,authorize,tick,instance,profilePolicy:()=>policy.load().profiles,quiescent:()=>Object.values(state.runs).every(r=>r.quiescent),close(){for(const g of Object.values(state.grants))revoke(g);tick();}};
 }
 module.exports={createIntegratedApi};

@@ -8,7 +8,7 @@ function chooseFile(initialDirectory = '', launch = spawn) {
     const child = launch('powershell.exe', [
       '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', script,
       '-InitialDirectory', initialDirectory
-    ], { windowsHide: true });
+    ], { windowsHide: true, shell:false, env:Object.fromEntries(['SystemRoot','WINDIR','PATH','Path','TEMP','TMP','USERPROFILE','LOCALAPPDATA'].filter(k=>process.env[k]).map(k=>[k,process.env[k]])) });
     let output = '';
     let errors = '';
     child.stdout.setEncoding('utf8');

@@ -78,7 +78,7 @@ Không thêm health/grant/profile-open API v2 ở WFI-02. V1 Idempotency-Key ở
 HTTP 202 chỉ accepted và hủy HTTP không dừng workflow đã nhận.
 # WFI-03 integrated API và grant
 
-Mode integrated (engine 0.3.0) implement HTTP loopback mới với Bearer local:
+Mode integrated (engine 0.4.0) implement HTTP loopback mới với Bearer local:
 GET `/api/v2/health`; PUT/GET `/api/v2/grants/:grantId`; POST
 `/api/v2/grants/:grantId/revoke`; GET profiles/scenarios/describe/runs/status,
 POST runs và runs/:runId/stop dưới `/api/v2`. Catalog/run/status/stop cần headers
@@ -113,3 +113,22 @@ trả null; quá 15 giây không có health thì degraded/STALE và workflowSupp
 Runner heartbeat không gia hạn health. Refresh cùng instance/policy ready không
 thu hồi grant hiện hành; đổi instance/policy hoặc mất ready thu hồi grant.
 Các state: configured/starting/ready/degraded/stopping/failed/unconfigured.
+
+## WFI-05 — Chrome profile (engine 0.4.0 / extension 4.4.0)
+
+Capability protocol 2 có operation thứ tám `openProfile` khi engine hỗ trợ.
+Backend/runner kiểm tra owner/operator + active lease như run, chỉ nhận
+`params:{profile}`. Route `POST /api/v2/profiles/open`, body `{profile}` cần
+Bearer + X-Workflow-Grant/Fence/Engine-Instance và local policy allowOpen.
+Không nhận URL/path/flags/env. Response `{profile,state,reasonCode}`; trạng thái
+được poll qua catalog `GET /api/v2/profiles`, mỗi item thêm allowOpen/readiness.
+`workflowHealth.operations` trong device snapshot dùng để bật nút theo capability.
+
+Extension local có `POST /extension/profiles` và `/extension/bind`, chỉ dành cho
+Origin extension; discovery trả profile IDs policy cho phép, không storage/token.
+Bind nhận profile/clientId/workerId/readinessVersion=1/settlementVersion=1, trả
+connectionId nonce local. Integrated state/next/result/picker kiểm tra binding;
+nonce/client không chuyển lên VPS. Heartbeat hết 10 giây mất readiness, worker
+restart không nhận lại step ambiguous. Port mặc định 34719, Options hỗ trợ đổi
+port loopback 1024–65535 cùng engine. Web start và từng bước kiểm tra readiness;
+local-only không cần extension. Xem [WORKFLOW_CHROME](WORKFLOW_CHROME.md).

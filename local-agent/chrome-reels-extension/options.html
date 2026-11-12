@@ -5,6 +5,8 @@
 <body>
 <h1>Kết nối Chrome profile</h1>
 <p>Chọn đúng profile đang mở cửa sổ này. Xem <strong>Profile Path</strong> tại <code>chrome://version</code>: phần cuối là <code>Default</code> hoặc <code>Profile 1</code>, <code>Profile 2</code>… Mỗi profile cần cài extension và cấu hình một lần.</p>
+<label>Port engine local<input id="port" type="number" min="1024" max="65535" value="34719"></label>
+<button id="discover">Tải danh sách profile</button>
 <label>Chrome profile<select id="profile"><option value="">Chọn profile…</option></select></label>
 <button id="save">Lưu kết nối</button>
 <p>Khi chạy qua CLI/API, truyền chính thư mục profile đã chọn ở đây (ví dụ <code>--profile "Profile 1"</code>). Giữ Chrome và extension hoạt động để nhận các bước trình duyệt. Token API được cấu hình trong môi trường của agent và CLI.</p>

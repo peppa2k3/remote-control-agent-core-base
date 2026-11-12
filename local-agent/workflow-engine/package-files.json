@@ -37,6 +37,7 @@
   "src/http/strict-json.js",
   "src/integrations/chrome/file-picker.js",
   "src/integrations/chrome/file-picker.ps1",
+  "src/integrations/chrome/profile-bridge.js",
   "src/integrations/chrome/profiles.js",
   "src/integrations/mongo/mongo-dns.js",
   "src/integrations/mongo/mongo-sync.js",

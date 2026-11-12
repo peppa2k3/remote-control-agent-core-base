@@ -44,7 +44,7 @@ export function createWorkflowSupervisor({settings=readWorkflowSettings(),config
   function report(value,h=null){health=h;state={...value,checkedAt:Date.now()};for(const fn of listeners)fn(snapshot());}
   async function probe(timeout=2000){
     const h=await client.health({signal:AbortSignal.timeout(Math.max(1,Math.ceil(timeout)))});
-    if(!/^0\.[23]\.\d+$/.test(h.engineVersion||'')||!Array.isArray(h.operations)||['profiles','scenarios','describe','runs','status','run','stop'].some(op=>!h.operations.includes(op))||!['ready','unconfigured','degraded','stopping'].includes(h.health?.state))throw failure('INCOMPATIBLE');
+    if(!/^0\.[234]\.\d+$/.test(h.engineVersion||'')||!Array.isArray(h.operations)||['profiles','scenarios','describe','runs','status','run','stop'].some(op=>!h.operations.includes(op))||!['ready','unconfigured','degraded','stopping'].includes(h.health?.state))throw failure('INCOMPATIBLE');
     if(config.mode==='managed'&&(!proof||h.lifecycleVersion!==1||proof.engineInstanceId!==h.engineInstanceId))throw failure('OWNERSHIP_UNVERIFIED');
     if(!closing)report(h.health,h);return h;
   }

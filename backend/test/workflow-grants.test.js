@@ -65,6 +65,8 @@ test('real core + adapter + integrated engine: policy, user/browser lease, takeo
   async function lease(socket,force=false){const offered=once(agent,'session:offer');const result=await emit(socket,'session:request',{deviceId:device.deviceId,force});assert.equal(result.ok,true,JSON.stringify(result));const [p]=await offered;await emit(agent,'session:ack',{sessionId:p.sessionId,nonce:p.nonce,accept:true});await until(()=>active?.sessionId===p.sessionId);return p.sessionId;}
   let sessionId=await lease(op.socket);
   const request=(socket,operation,params={},requestId)=>emit(socket,'workflow:request',{deviceId:device.deviceId,sessionId,operation,params,...(requestId?{requestId}:{})});
+  assert.equal((await request(view.socket,'openProfile',{profile:'Default'})).status,403);assert.equal((await request(other.socket,'openProfile',{profile:'Default'})).status,403);
+  assert.equal((await request(op.socket,'openProfile',{profile:'Default',url:'https://arbitrary.test'})).status,400);assert.equal((await request(op.socket,'openProfile',{profile:'Default'})).status,403);
   assert.equal((await request(view.socket,'scenarios')).status,403);assert.equal((await request(other.socket,'scenarios')).status,403);
   assert.equal((await request(op.socket,'run',{scenario:'wait',profile:'Default',uploadPath:'C:/arbitrary'},'invalid')).status,400);
   const describe=await request(op.socket,'describe',{scenario:'wait'});assert.equal(describe.ok,true,JSON.stringify(describe));assert.deepEqual(describe.data.variables,{delay:20});assert(!JSON.stringify(describe).includes('never-relay-this'));
@@ -88,7 +90,9 @@ test('real core + adapter + integrated engine: policy, user/browser lease, takeo
   sessionId=await lease(own.socket);
   assert.equal((await request(own.socket,'status',{runId:unknownRun.runId})).data.state,'cancelled','revoke stops accepted runs without a returned runId');
   // Real engine/HTTP with an extension protocol fixture, no logged-in Chrome.
-  async function local(route,body){return (await fetch(engine.base+route,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:'Default',clientId:'fixture-extension',settlementVersion:1,...body})})).json();}
+  const extension={profile:'Default',clientId:randomUUID(),workerId:randomUUID(),settlementVersion:1,readinessVersion:1};
+  const bind=await fetch(engine.base+'/extension/bind',{method:'POST',headers:{'content-type':'application/json',Origin:'chrome-extension://'+ 'a'.repeat(32)},body:JSON.stringify(extension)});assert.equal(bind.status,200);extension.connectionId=(await bind.json()).connectionId;
+  async function local(route,body){return (await fetch(engine.base+route,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...extension,...body})})).json();}
   await local('/state',{});
   const web=await request(own.socket,'run',{scenario:'web',profile:'Default'},'web-key');assert.equal(web.ok,true,JSON.stringify(web));
   const step=await local('/next',{});assert.equal(step.step.action,'openUrl');

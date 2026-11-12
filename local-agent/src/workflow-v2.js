@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {readWorkflowSettings,validateWorkflowSettings} from './workflow.js';
 const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v);
 const fail=(code,status=409)=>{throw Object.assign(new Error(code),{status,code});};
-const fields={profiles:[],scenarios:[],describe:['scenario'],runs:['profile'],status:['runId'],run:['scenario','profile','variables','timeoutMs'],stop:['runId']};
+const fields={profiles:[],scenarios:[],describe:['scenario'],runs:['profile'],status:['runId'],run:['scenario','profile','variables','timeoutMs'],stop:['runId'],openProfile:['profile']};
 export function createWorkflowV2Client({settings=readWorkflowSettings,fetchImpl=fetch}={}){
   async function http(route,method='GET',body,headers={},signal){
     const config=validateWorkflowSettings(settings());
@@ -23,7 +23,7 @@ export function bindWorkflowV2Socket({socket,getSession,client=createWorkflowV2C
   function abort(){epoch++;clearTimeout(timer);for(const controller of pending)controller.abort();}
   function queue(fn){const task=control.then(fn);control=task.catch(()=>{});return task;}
   async function publish(){
-    try{const next=supervisor?supervisor.getHealth():await client.health();if(!next)throw Error('UNAVAILABLE');if(engine?.engineInstanceId!==next.engineInstanceId||next.health?.state!=='ready')lost();engine=next;if(!closed&&socket.connected)socket.emit('workflow:v2:capabilities',{protocolVersion:2,agentInstanceId,engineInstanceId:engine.engineInstanceId,engineVersion:engine.engineVersion,mode:'integrated',operations:Object.keys(fields),policyRevision:engine.policyRevision,health:{...engine.health,...(supervisor?{state:supervisor.snapshot().state,reasonCode:supervisor.snapshot().reasonCode}:{} )},...(supervisor?{supervisor:{mode:supervisor.snapshot().mode,owned:supervisor.snapshot().owned,restarts:supervisor.snapshot().restarts}}:{})});}
+    try{const next=supervisor?supervisor.getHealth():await client.health();if(!next)throw Error('UNAVAILABLE');if(engine?.engineInstanceId!==next.engineInstanceId||next.health?.state!=='ready')lost();engine=next;if(!closed&&socket.connected)socket.emit('workflow:v2:capabilities',{protocolVersion:2,agentInstanceId,engineInstanceId:engine.engineInstanceId,engineVersion:engine.engineVersion,mode:'integrated',operations:Object.keys(fields).filter(op=>engine.operations.includes(op)),policyRevision:engine.policyRevision,health:{...engine.health,...(supervisor?{state:supervisor.snapshot().state,reasonCode:supervisor.snapshot().reasonCode}:{} )},...(supervisor?{supervisor:{mode:supervisor.snapshot().mode,owned:supervisor.snapshot().owned,restarts:supervisor.snapshot().restarts}}:{})});}
     catch{if(engine)lost();engine=null;if(!closed&&socket.connected)socket.emit('workflow:v2:capabilities',{protocolVersion:2,agentInstanceId,engineInstanceId:null,engineVersion:'unknown',mode:'integrated',operations:[],policyRevision:null,health:{state:supervisor?.snapshot().state||'unconfigured',reasonCode:supervisor?.snapshot().reasonCode||'UNAVAILABLE',checkedAt:Date.now()},...(supervisor?{supervisor:{mode:supervisor.snapshot().mode,owned:supervisor.snapshot().owned,restarts:supervisor.snapshot().restarts}}:{})});}
   }
   async function revoke(p){const h=await client.health();engine=h;return client.http(`/grants/${p.grantId}/revoke`,'POST',{engineInstanceId:h.engineInstanceId,fence:p.fence,reason:p.reason||'offline'});}
@@ -47,12 +47,13 @@ export function bindWorkflowV2Socket({socket,getSession,client=createWorkflowV2C
     if(typeof ack!=='function')return;let controller;
     try{
       if(supervisor&&supervisor.snapshot().state!=='ready'||!p||p.protocolVersion!==2||p.agentInstanceId!==agentInstanceId||p.engineInstanceId!==engine?.engineInstanceId||p.grantId!==grant?.grantId||p.fence!==grant?.fence||!alive(p.sessionId)||p.sessionId!==grant.sessionId||Date.now()>=p.deadline)fail('LEASE_REQUIRED',403);
-      const allowed=fields[p.operation];if(!allowed||!p.params||typeof p.params!=='object'||Array.isArray(p.params)||Object.keys(p.params).some(k=>!allowed.includes(k))||Buffer.byteLength(JSON.stringify(p.params))>12000)fail('INVALID_REQUEST',400);
+      if(!engine.operations.includes(p.operation))fail('INCOMPATIBLE');const allowed=fields[p.operation];if(!allowed||!p.params||typeof p.params!=='object'||Array.isArray(p.params)||Object.keys(p.params).some(k=>!allowed.includes(k))||Buffer.byteLength(JSON.stringify(p.params))>12000)fail('INVALID_REQUEST',400);
       if(pending.size>=4)fail('BUSY',429);controller=new AbortController();pending.add(controller);const captured=epoch;
       const headers={'X-Workflow-Grant':p.grantId,'X-Workflow-Fence':String(p.fence),'X-Workflow-Engine-Instance':p.engineInstanceId};
       let route,method='GET',body;
       if(['profiles','scenarios','runs'].includes(p.operation))route='/'+p.operation+(p.operation==='runs'&&p.params.profile?'?profile='+encodeURIComponent(p.params.profile):'');
       else if(p.operation==='describe'){if(!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(p.params.scenario))fail('INVALID_REQUEST',400);route='/scenarios/'+p.params.scenario;}
+      else if(p.operation==='openProfile'){if(!/^(Default|Profile \d+)$/.test(p.params.profile||''))fail('INVALID_REQUEST',400);route='/profiles/open';method='POST';body={profile:p.params.profile};}
       else if(p.operation==='run'){route='/runs';method='POST';body={...p.params,jobId:p.jobId};headers['Idempotency-Key']=p.requestId;}
       else {if(!uuid(p.params.runId))fail('INVALID_REQUEST',400);route='/runs/'+p.params.runId+(p.operation==='stop'?'/stop':'');if(p.operation==='stop'){method='POST';body={jobId:p.jobId};headers['Idempotency-Key']=p.requestId;}}
       const data=await client.http(route,method,body,headers,controller.signal);

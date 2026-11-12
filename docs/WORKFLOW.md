@@ -2,7 +2,7 @@
 
 ## Integrated mode WFI-03
 
-Engine 0.3.0 + runner WORKFLOW_AGENT_PROTOCOL=2 hỗ trợ policy/grant theo active
+Engine 0.4.0 + runner WORKFLOW_AGENT_PROTOCOL=2 hỗ trợ policy/grant theo active
 lease. Xem [cấu hình và phạm vi](WORKFLOW_GRANTS.md). Env examples mới opt-in;
 không sửa env/installation đang chạy tự động. Protocol 1/standalone dưới đây vẫn
 giữ behavior cũ. Extension integrated cần 4.3.0, reload và refresh trang cũ.
@@ -123,3 +123,11 @@ upload được cấu hình trong scenario. Tham số tối đa 12KB, response r
 khác. `local-agent/test/workflow.test.js` kiểm tra config, auth, redirect, token
 redaction và abort khi revoke. `npm test` và `npm run build` là các gate của repo.
 Chưa deploy VPS hoặc chạy scenario trên Chrome profile người dùng.
+
+## WFI-05 — mở Chrome profile
+
+Engine 0.4.0 và extension 4.4.0 thêm openProfile theo grant/allowOpen và readiness
+worker thực. Trong Options chọn port → tải profiles → chọn đúng profile → lưu;
+web cần lease trước khi mở profile. Local-only workflow không cần extension.
+Hướng dẫn cài/enable, port, missing-extension/busy và Windows interactive tại
+[WORKFLOW_CHROME](WORKFLOW_CHROME.md). Không dùng API v1 để bypass integrated.

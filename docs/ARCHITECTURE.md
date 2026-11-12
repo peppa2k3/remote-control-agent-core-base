@@ -66,3 +66,13 @@ SQLite synchronous trong một process giữ việc request/ACK/renew nguyên t�
 
 ## Bảo đảm về MeshCentral
 Core lease chỉ bảo vệ giao thức app/Local Runner. MeshCentral standalone có UI/quyền/session riêng. Đăng nhập trực tiếp MeshCentral có thể tạo phiên độc lập. Step 03 phải chứng minh enforce ở relay hoặc quyền runtime và đóng đường bypass trước khi tuyên bố độc quyền desktop. Bản đầu chỉ tài khoản hạ tầng riêng được truy cập MeshCentral.
+
+## WFI-05 — profile bridge
+
+Engine 0.4.0 dùng profile-bridge local cho fixed-argv launch, bind worker/client
+và heartbeat freshness. Policy/grant v2 bảo vệ openProfile, không thêm REST
+control-server hoặc fallback API v1. Extension 4.4.0 dùng nonce connection local,
+port cấu hình trong Options và debugger ownership proof. Integrated browser
+workflow giữ slot foreground đến quiescence; picker/native chooser cũng giữ
+quyền riêng, chặn tranh foreground giữa profile. Không kill Chrome khi revoke.
+Xem [WORKFLOW_CHROME](WORKFLOW_CHROME.md).

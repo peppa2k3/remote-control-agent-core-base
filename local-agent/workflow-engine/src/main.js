@@ -18,6 +18,7 @@ const { createMongoSync } = require('./integrations/mongo/mongo-sync');
 const { mongoSettings } = require('./env');
 const { createContentApi } = require('./http/content-api');
 const { createMediaGuard } = require('./workflow/media-guard');
+const {createProfileBridge}=require('./integrations/chrome/profile-bridge');
 const {createIntegratedApi} = require('./http/integrated-api');
 const {parseStrictJson} = require('./http/strict-json');
 const mode = process.env.LOCAL_AGENT_MODE || 'standalone';
@@ -44,7 +45,7 @@ const mongoSync = createMongoSync(activity, { settings: mongoSettings });
 const content = createContentApi({ mongo: mongoSync, activity, readBody });
 const mediaGuard = createMediaGuard({ activity, mongo: mongoSync });
 const cachedDownloader = createCachedDownloader(activity, downloadVideo);
-const workflows = createWorkflows({ scenarios, defaultProfile: profile, profiles, activity, mediaGuard, strictSettlement:mode==='integrated', authorize: (id,step) => integrated?.authorize(id,step), prepareUpload: content.prepareUpload, async downloadVideo(step, signal, context) {
+const workflows = createWorkflows({ scenarios, defaultProfile: profile, profiles, activity, mediaGuard, strictSettlement:mode==='integrated',guiBusy:()=>filePickerPending, authorize: (id,step) => integrated?.authorize(id,step), prepareUpload: content.prepareUpload, async downloadVideo(step, signal, context) {
   const release = await mediaGuard.check(step, null, { ...context, signal });
   try { return await cachedDownloader(step, signal); } finally { release(); }
 }, openFolder(folderPath) {
@@ -54,7 +55,8 @@ const workflows = createWorkflows({ scenarios, defaultProfile: profile, profiles
 } });
 function launch(command, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { detached: true, stdio: 'ignore' });
+    const env=Object.fromEntries(['SystemRoot','WINDIR','PATH','Path','TEMP','TMP','HOME','USERPROFILE','LOCALAPPDATA','APPDATA'].filter(k=>process.env[k]).map(k=>[k,process.env[k]]));
+    const child = spawn(command, args, { shell:false,env,detached: true, stdio: 'ignore' });
     child.once('error', reject);
     child.once('spawn', () => { child.unref(); resolve(); });
   });
@@ -74,10 +76,11 @@ function readBody(request) {
     request.on('error', reject);
   });
 }
+const profileBridge=createProfileBridge({profiles,workflows,chromePath,userDataDir,port,guiBusy:()=>filePickerPending||workflows.pickerBusy(),allowed:()=>integrated?integrated.profilePolicy():profiles().map(p=>({id:p.directory,allowOpen:true}))});
 const automation = createAutomationApi({ workflows, scenarios, profiles, readBody });
 if (mode === 'integrated') {
   if (!automation.enabled) throw new Error('Integrated mode requires LOCAL_AGENT_API_TOKEN');
-  integrated = createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,policyFile:path.resolve(__dirname,'..',process.env.LOCAL_AGENT_POLICY_FILE || path.join(dataDir,'workflow-policy.json')),authorized:automation.authorized,readBody,isStopping:()=>closing});
+  integrated = createIntegratedApi({profileBridge,workflows,scenarios,profiles,scenariosDir,dataDir,policyFile:path.resolve(__dirname,'..',process.env.LOCAL_AGENT_POLICY_FILE || path.join(dataDir,'workflow-policy.json')),authorized:automation.authorized,readBody,isStopping:()=>closing});
 }
 const dashboardToken = randomBytes(32).toString('hex');
 function dashboardAuthorized(request) {
@@ -98,6 +101,14 @@ const server = http.createServer(async (request, response) => {
   if(closing && !['/api/v2/health','/result','/state'].includes(route) && !(route.startsWith('/api/v2/grants/') && (request.method==='GET'||route.endsWith('/revoke'))))return json(503,{error:'STOPPING'});
   if (request.headers.host !== `127.0.0.1:${port}` && request.headers.host !== `localhost:${port}`) return json(403, { error: 'Host not allowed' });
   const origin = request.headers.origin;
+  if(route.startsWith('/extension/')){
+    if(request.method!=='POST'||!/^chrome-extension:\/\/[a-z]+$/.test(origin||''))return json(403,{error:'EXTENSION_ORIGIN_REQUIRED'});
+    try{
+      if(route==='/extension/profiles')return json(200,{profiles:profiles().filter(p=>!integrated||integrated.profilePolicy().some(a=>a.id===p.directory)).map(p=>({directory:p.directory,name:p.directory}))});
+      if(route==='/extension/bind'){const body=await readBody(request);const result=profileBridge.bind(body);workflows.connect(body);return json(200,result);}
+      return json(404,{error:'NOT_FOUND'});
+    }catch(e){return json(e.status||409,{error:e.code||'EXTENSION_REJECTED'});}
+  }
   if (origin && origin !== `http://127.0.0.1:${port}` && !/^chrome-extension:\/\/[a-z]+$/.test(origin)) return json(403, { error: 'Origin not allowed' });
   if (request.method === 'GET' && ['/remote.js', '/remote.css', '/issues.js'].includes(route)) {
     response.writeHead(200, { 'Content-Type': route.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
@@ -119,6 +130,14 @@ const server = http.createServer(async (request, response) => {
     if (route.startsWith('/api/v1/')) { if (integrated) return json(403,{error:'GRANT_REQUIRED'}); return await automation.handle(request, url, json); }
     if (route.startsWith('/api/')) {
       const origin = request.headers.origin;
+  if(route.startsWith('/extension/')){
+    if(request.method!=='POST'||!/^chrome-extension:\/\/[a-z]+$/.test(origin||''))return json(403,{error:'EXTENSION_ORIGIN_REQUIRED'});
+    try{
+      if(route==='/extension/profiles')return json(200,{profiles:profiles().filter(p=>!integrated||integrated.profilePolicy().some(a=>a.id===p.directory)).map(p=>({directory:p.directory,name:p.directory}))});
+      if(route==='/extension/bind'){const body=await readBody(request);const result=profileBridge.bind(body);workflows.connect(body);return json(200,result);}
+      return json(404,{error:'NOT_FOUND'});
+    }catch(e){return json(e.status||409,{error:e.code||'EXTENSION_REJECTED'});}
+  }
       // Chrome may omit Origin on extension GETs. Options uses a read-only POST
       // for discovery so the browser supplies its extension origin explicitly.
       const profileDiscovery = route === '/api/profiles' && ['GET', 'POST'].includes(request.method);
@@ -140,6 +159,7 @@ const server = http.createServer(async (request, response) => {
         const run = workflows.getRun(historyMatch[1]);
         return json(run ? 200 : 404, run || { error: 'Run not found' });
       }
+      if(profileDiscovery&&extensionRead&&integrated)return json(200,{profiles:profiles().filter(p=>integrated.profilePolicy().some(a=>a.id===p.directory)).map(p=>({directory:p.directory,name:p.directory}))});
       if (profileDiscovery) {
         return json(200, { defaultProfile: profile, automationEnabled: automation.enabled, storage: activity.syncStatus(), capabilities: ['remote-control-v1', 'shared-content-v1', 'activity-history-v1', 'download-cache-v1', 'automation-api-v1', 'variables-v1', 'video-download-v1', 'video-quality-best-v1', 'download-references-v1', 'scenario-management-v1'], performance, profiles: profiles().map(item => ({ ...item, ...workflows.status(item.directory) })) });
       }
@@ -151,14 +171,17 @@ const server = http.createServer(async (request, response) => {
       }
       if (request.method === 'GET' && route === '/api/pick/status') return json(200, workflows.session(selected).picker);
       if (request.method === 'POST' && route === '/api/choose-file') {
+        if (workflows.browserBusy()||workflows.pickerBusy()) throw new Error('Browser workflow or picker owns foreground');
         if (filePickerPending) throw new Error('Hộp chọn file đang mở. Chọn file hoặc Hủy trong cửa sổ đó.');
         const body = await readBody(request);
+        if (workflows.browserBusy()||workflows.pickerBusy()) throw new Error('Browser workflow or picker owns foreground');
         if (filePickerPending) throw new Error('Hộp chọn file đang mở');
         filePickerPending = true;
         try { return json(200, { filePath: await chooseFile(body.initialDirectory || '') }); }
         finally { filePickerPending = false; }
       }
       if (request.method === 'POST' && route === '/api/pick/start') {
+        if(workflows.browserBusy()||workflows.pickerBusy()||filePickerPending)throw new Error('Browser workflow or picker owns foreground');
         const body = await readBody(request);
         const s = workflows.session(body.profile);
         if (s.running) throw new Error('Stop this profile before picking an element');
@@ -203,6 +226,7 @@ const server = http.createServer(async (request, response) => {
       return json(404, { error: 'Not found' });
     }
     const body = await readBody(request);
+    if(integrated||body.readinessVersion===1)profileBridge.heartbeat(body,route==='/result');
     const s = workflows.connect(body);
     if (route === '/next') return json(200, workflows.next(s));
     if (route === '/result') workflows.result(s, body);

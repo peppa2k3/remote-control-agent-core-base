@@ -9,6 +9,10 @@ WFI-04 bổ sung [supervisor attach/managed và health](docs/WORKFLOW_SUPERVISOR
 Durable jobs toàn tuyến chưa triển khai. Attach là mặc định; chỉ chuyển managed
 sau khi dừng engine cũ và bảo vệ ACL file env tại máy local.
 
+WFI-05 bổ sung [mở Chrome profile và readiness extension](docs/WORKFLOW_CHROME.md):
+engine 0.4.0, extension 4.4.0. Cài/enable extension riêng và chọn profile/port trong
+Options; Chrome đang chạy chưa đủ để coi bước web sẵn sàng.
+
 Workflow bridge: panel **Kịch bản tự động** điều khiển scenario đã lưu trong
 Local Workflow Agent qua HTTP loopback và active lease hiện có. Xem
 [cấu hình workflow API và terminal CLI](docs/WORKFLOW.md).

@@ -1,4 +1,6 @@
-const base = 'http://127.0.0.1:34719';
+const workerId=crypto.randomUUID();
+let binding=null;
+let base = 'http://127.0.0.1:34719';
 const fileChoosers = new Map();
 const debuggerTabs = new Set();
 chrome.debugger.onDetach?.addListener(source => { debuggerTabs.delete(source.tabId); fileChoosers.delete(source.tabId); });
@@ -14,14 +16,22 @@ chrome.tabs.onCreated.addListener(tab => {
 });
 
 async function identity() {
-  const config = await chrome.storage.local.get(['profile', 'clientId']);
+  const config = await chrome.storage.local.get(['profile', 'clientId', 'port']);
+  config.port??=34719;if(!Number.isInteger(config.port)||config.port<1024||config.port>65535)throw Error('Invalid local port');
+  base=`http://127.0.0.1:${config.port}`;
   config.settlementVersion = 1;
+  config.readinessVersion = 1;config.workerId=workerId;
   if (!config.profile) throw new Error('Chọn Chrome profile trong Extension options trước khi chạy.');
   if (!config.clientId) {
     config.clientId = crypto.randomUUID();
     await chrome.storage.local.set({ clientId: config.clientId });
   }
-  return config;
+  if(!binding||binding.profile!==config.profile||binding.clientId!==config.clientId||binding.port!==config.port){
+    const response=await fetch(base+'/extension/bind',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile:config.profile,clientId:config.clientId,workerId:config.workerId,settlementVersion:1,readinessVersion:1}),signal:AbortSignal.timeout(5000)});
+    const result=await response.json();if(!response.ok)throw Error(result.error||'EXTENSION_BIND_FAILED');
+    binding={...config,connectionId:result.connectionId};
+  }
+  return {...binding};
 }
 
 chrome.debugger.onEvent.addListener((source, method, params) => {
@@ -32,14 +42,14 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
 
 async function call(path, payload = {}, client) {
   client ||= activeJob?.client || await identity();
-  const response = await fetch(base + path, {
+  const response = await fetch(`http://127.0.0.1:${client.port||34719}` + path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...payload, ...client }),
     signal: AbortSignal.timeout(5000)
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || `Agent HTTP ${response.status}`);
+  if (!response.ok){if(data.error==='EXTENSION_BIND_REQUIRED')binding=null;throw new Error(data.error || `Agent HTTP ${response.status}`);}
   return data;
 }
 
@@ -160,7 +170,7 @@ async function poll() {
     }
     const next = await call('/next', {}, client);
     if (next.paused || !next.step) return; // Duplicate confirmation stays in the local dashboard.
-    const job = { client, runId: next.runId, tabId: next.tabId, pendingInputs:0, uncertainInput:false };
+    const job = { client, stepId:next.step.id, runId: next.runId, tabId: next.tabId, pendingInputs:0, uncertainInput:false };
     activeJob = job;
     const keepAlive = setInterval(() => {
       checkRunning(job).catch(() => {
@@ -210,8 +220,12 @@ async function input(tabId, message) {
 async function performInput(tabId, message) {
   const target = { tabId };
   if (!debuggerTabs.has(tabId)) {
-    const targets = await chrome.debugger.getTargets();
-    if (!targets.some(item => item.tabId === tabId && item.attached)) await chrome.debugger.attach(target, '1.3');
+    try { await chrome.debugger.attach(target, '1.3'); }
+    catch (error) {
+      // An attached target may belong to DevTools or another extension. A read-only
+      // command proves this extension owns a usable debugger session after MV3 wake.
+      await chrome.debugger.sendCommand(target,'Page.getFrameTree',{});
+    }
     debuggerTabs.add(tabId);
   }
   const command = (method, params) => chrome.debugger.sendCommand(target, method, params);
@@ -276,6 +290,17 @@ async function performInput(tabId, message) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if(message.type==='configureProfile'&&sender.url===`chrome-extension://${chrome.runtime.id}/options.html`){
+    (async()=>{
+      if(activeJob)throw Error('Stop the workflow before changing profile');
+      if(!Number.isInteger(message.port)||message.port<1024||message.port>65535)throw Error('Invalid local port');
+      if(!/^(Default|Profile \d+)$/.test(message.profile||''))throw Error('Invalid profile');
+      const old=await chrome.storage.local.get(['profile','clientId']);
+      if(old.profile&&binding){try{const state=await call('/state');if(state.running)throw Error('PROFILE_BUSY');}catch(e){if(e.message==='PROFILE_BUSY')throw e;/* Allow explicit recovery when the previous local engine is offline. */}}
+      binding=null;await chrome.storage.local.set({profile:message.profile,port:message.port,clientId:old.clientId||crypto.randomUUID()});
+      await identity();void poll();return {ok:true};
+    })().then(sendResponse,e=>sendResponse({ok:false,error:e.message}));return true;
+  }
   if (!sender.tab) return;
   (async () => {
     try {

@@ -2,7 +2,7 @@ const { randomUUID } = require('crypto');
 const { setTimeout: delay } = require('timers/promises');
 const { overrideVariables } = require('./variables');
 
-function createWorkflows({ scenarios, defaultProfile, profiles, openFolder, downloadVideo, activity, prepareUpload, mediaGuard, authorize = () => {}, strictSettlement = false }) {
+function createWorkflows({ scenarios, defaultProfile, profiles, openFolder, downloadVideo, activity, prepareUpload, mediaGuard, authorize = () => {}, strictSettlement = false, guiBusy = () => false }) {
   const sessions = new Map();
   const completed = new Map();
   const tracking = new Map();
@@ -170,13 +170,14 @@ function createWorkflows({ scenarios, defaultProfile, profiles, openFolder, down
       throw new Error('Extension chưa kết nối profile này. Mở profile, cài/reload extension và chọn đúng profile trong Extension options.');
     }
     if (strictSettlement && s.settlementVersion !== 1 && workflow.steps.some(step => !['wait','openFolder','downloadVideo'].includes(step.action))) throw new Error('Reload extension 4.3.0 or newer before integrated browser workflows');
+    if(strictSettlement&&workflow.steps.some(step=>!['wait','openFolder','downloadVideo'].includes(step.action))&&(browserBusy()||pickerBusy()||guiBusy()))throw new Error('PROFILE_BUSY');
     stop(profile);
     Object.assign(s, { workflow, scenarioName: scenarioName || scenario.name || null, uploadPath, currentStep: null, currentUrl: '', uploadFile: null,
       steps: workflow.steps.map((step, index) => ({ index, number: index + 1, action: step.action, label: step.label?.trim() || `Bước ${index + 1}`,
         state: 'pending', started_at: null, ended_at: null, error: '' })),
       runtime: {}, index: 0, download: null, error: '', tabId: null, running: true, startedAt: Date.now(), endedAt: null, lastStepMs: null });
     s.executionId = executionId || s.runId; s.outcome = 'running';
-    tracking.set(s.executionId, {local:0,web:null,uncertain:false});
+    tracking.set(s.executionId, {profile,browser:workflow.steps.some(step=>!['wait','openFolder','downloadVideo'].includes(step.action)),local:0,web:null,uncertain:false});
     if (tracking.size > 400) for (const [id,item] of tracking) { if (tracking.size <= 400) break; if (!item.local && !item.web && !item.uncertain && id !== s.executionId && getRun(id)?.state !== 'running') tracking.delete(id); }
     s.runDeadline = Date.now() + timeoutMs;
     try { persist(s); } catch (error) { s.running = false; s.outcome = 'failed'; throw error; }
@@ -248,7 +249,11 @@ function createWorkflows({ scenarios, defaultProfile, profiles, openFolder, down
   function usesScenario(name) {
     return [...sessions.values()].some(s => s.running && s.scenarioName === name);
   }
-  return { resolveConfirmation, usesScenario, session, status, start, stop, connect, next, result, expire, getRun, stopRun,
+  function unsettled(id,t){const s=sessions.get(t.profile);return s?.executionId===id&&s.running||t.local||t.web||t.uncertain;}
+  function profileBusy(profile){return [...tracking].some(([id,t])=>t.profile===profile&&unsettled(id,t));}
+  function browserBusy(){return [...tracking].some(([id,t])=>t.browser&&unsettled(id,t));}
+  function pickerBusy(){return [...sessions.values()].some(s=>s.picker.active);}
+  return { pickerBusy,profileBusy,browserBusy,resolveConfirmation, usesScenario, session, status, start, stop, connect, next, result, expire, getRun, stopRun,
     quiescent(id) { const track=tracking.get(id); return !!track && !track.local && !track.web && !track.uncertain; },
     allQuiescent() { return [...tracking.values()].every(t=>!t.local&&!t.web&&!t.uncertain); },
     uncertain(id) { return tracking.get(id)?.uncertain === true; },

@@ -116,3 +116,18 @@ lock, crash đang chạy, wrong auth/version, timeout/cap và NTFS ACL thật. F
 test/build và Chrome fixture được ghi tại [VALIDATION](VALIDATION.md).
 Hướng dẫn [attach → managed](WORKFLOW_SUPERVISOR.md). Không sửa env thật, deploy
 VPS, cài task hoặc restart engine/runner người dùng. WFI-05–08 còn planned.
+## 2026-11-12 — WFI-05 Chrome profile/extension
+
+Engine 0.4.0 + extension 4.4.0: openProfile v2 theo active lease/grant/policy,
+fixed argv/local paths/env filter; bind client/worker/nonce, heartbeat expiry,
+Options profile discovery + port loopback. Không cài extension tự động. Integrated
+browser workflow/picker giữ foreground đến quiescence; revoke không kill Chrome.
+Sửa debugger ownership khi target đã attached bởi DevTools; không coi attached
+là quyền của extension. Source từ ref giữ selector/ACK/cancel và không sửa ref.
+
+Real unpacked MV3 E2E trên Chromium/profile Unicode tạm: Options → bind →
+openUrl/type/click qua debugger → ACK, stop active action → settled, worker
+stop/reconnect và disable/enable. Full tests/build/Chrome UI được ghi tại
+[VALIDATION](VALIDATION.md). Hướng dẫn [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
+Không thay env/profile thật, cài task, restart installation hoặc deploy VPS.
+WFI-06–08 còn planned; chưa nghiệm thu Session 0/desktop login/website thật trên target.

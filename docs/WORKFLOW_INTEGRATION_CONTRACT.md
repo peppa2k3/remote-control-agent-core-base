@@ -3,8 +3,9 @@
 Trạng thái: **contract tổng thể, WFI-03 đã implement subset policy/grant**.
 Xem [phạm vi thực và cấu hình](WORKFLOW_GRANTS.md). Đã có health/grants/catalog/
 run/status/stop và Socket.IO grant/revoke/dispatch; panel cũ route v2 theo runner.
-openProfile, GET jobs, report/reconcile protocol và queue/retention 30/90 ngày
-còn planned. WFI-04 đã thêm supervisor và health, xem
+GET jobs, report/reconcile protocol và queue/retention 30/90 ngày còn planned.
+WFI-05 đã thêm openProfile và readiness: [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
+WFI-04 đã thêm supervisor và health, xem
 [phạm vi triển khai](WORKFLOW_SUPERVISOR.md). Các yêu cầu ở những phần planned
 chưa được bảo đảm bởi WFI-03/04.
 

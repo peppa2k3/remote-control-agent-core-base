@@ -43,6 +43,7 @@ frontend không gửi shell, steps, API URL hoặc uploadPath. Xem [WORKFLOW](WO
 về retry, giới hạn và hành vi workflow sau khi mất phiên.
 Không nhận code script tùy ý qua API/Socket.IO. Workflow scenario dùng bridge
 giới hạn ở trên; Remote Terminal là luồng riêng, chịu các ràng buộc lease và PTY.
+
 # WFI-04: process supervisor (2026-11-12)
 
 Managed child chỉ được spawn bởi runner từ Node/entrypoint/cwd cố định với env
@@ -54,3 +55,16 @@ Health đến VPS chỉ gồm metadata được chọn và thời gian nhận t�
 filter/freshness không bị thay thế bởi runner heartbeat. Crash/thiếu receipt giữ
 unknown/barrier và không replay. Engine readiness không xác nhận phiên Windows
 tương tác. Xem [WORKFLOW_SUPERVISOR](WORKFLOW_SUPERVISOR.md).
+
+## WFI-05 — Chrome
+
+Frontend chỉ chọn profile ID trong catalog, quyền luôn kiểm tra backend + engine
+grant/policy allowOpen. Executable/userDataDir/startup URL/argv/env chỉ do local
+trusted config chọn; child Chrome không nhận device/token/Mongo credential.
+Không tự cài extension, sửa Preferences/Secure Preferences hay kill Chrome khi
+mất lease. Worker nonce pin profile/client/worker; thiếu heartbeat không ready.
+Options chọn profile bằng user local, không phải OS profile attestation. Broad
+HTTP/HTTPS/debugger permissions giữ nguyên và được giải thích trong hướng dẫn.
+Foreground serialization không bảo đảm độc quyền desktop trước OS/terminal/local
+admin/extension khác. Session 0 bị chặn khi openProfile; các session khác vẫn cần
+desktop tương tác đúng user. Xem [WORKFLOW_CHROME](WORKFLOW_CHROME.md).

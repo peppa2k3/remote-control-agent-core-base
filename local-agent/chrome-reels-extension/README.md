@@ -1,9 +1,9 @@
-# Chrome Workflow Bridge 4.3.0
+# Chrome Workflow Bridge 4.4.0
 
 Source extension MV3 dựa trên snapshot tham chiếu của người dùng;
 provenance lưu tại `../workflow-engine/PROVENANCE.json`. Không chứa token API.
 
-Bản 4.3.0 gửi settlementVersion=1 và chỉ báo settled khi content script hết busy,
+Bản 4.4.0 gửi settlementVersion=1 và chỉ báo settled khi content script hết busy,
 debugger input hoàn tất. Mất port không được coi là tác vụ đã dừng. Integrated
 engine từ chối bước web với extension cũ. Sau cập nhật cần Reload extension và
 refresh các trang Chrome cũ; không chỉ restart engine.
@@ -27,3 +27,5 @@ powershell -NoProfile -File package.ps1
 Gói trong dist chỉ gồm manifest.json, background.js, content.js, options.html,
 options.js; không tự publish/cài extension hoặc ký CRX. Cài extension thủ công là
 bước riêng, chưa có Chrome supervisor trong WFI-02.
+
+WFI-05: see `docs/WORKFLOW_CHROME.md` in the core repo. In Options, enter the engine port (default 34719), discover profiles, select the actual Chrome profile and save. 4.4.0 uses readinessVersion=1 binding and worker nonce; engine 0.4.0 requires this for integrated web runs. No API token is stored in the extension. Host/permissions remain unchanged.

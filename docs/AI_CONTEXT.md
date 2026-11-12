@@ -22,3 +22,11 @@ Engine 0.3.0 có lifecycle health và IPC shutdown. Runner có supervisor attach
 mặc định/managed opt-in; backend/frontend nhận health đã lọc membership, stale
 sau 15 giây và offline trả null. Xem [WORKFLOW_SUPERVISOR](WORKFLOW_SUPERVISOR.md).
 OpenProfile/extension readiness và durable jobs/report vẫn thuộc WFI-05–08.
+
+## WFI-05 — 2026-11-12
+
+Engine 0.4.0/extension 4.4.0 có openProfile v2 theo grant/allowOpen, Options port
+và versioned worker/client binding với heartbeat, foreground lock đến quiescence.
+Web cần readiness thật, local-only vẫn riêng; revoke không kill Chrome. Đã có
+unpacked MV3 E2E trong Chromium/profile tạm. Xem [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
+Durable jobs/report/retention và nghiệm thu target production thuộc WFI-06–08.

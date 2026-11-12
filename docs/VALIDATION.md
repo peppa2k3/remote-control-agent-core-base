@@ -143,3 +143,37 @@ Chưa nghiệm thu VPS/network thật, unattended Windows interactive session, p
 Chrome đang thực hiện input. Các trường hợp đó tiếp tục cần WFI-05–08; engine
 health ready không chứng minh các điều kiện đó. ACL test chỉ chứng minh file
 fixture; người vận hành vẫn phải bảo vệ thư mục cài đặt/runtime tại máy đích.
+## WFI-05 — 2026-11-12, Windows / Node 24.16.0
+
+- `npm test`: exit 0, **58/58**: backend 8, Local Runner 19, engine 31.
+- `npm run build`: exit 0. 15 changed/new JavaScript files checked with `node --check`, exit 0.
+- `npm run test:browser -w @rca/workflow-engine`: **4/4**, gồm unpacked MV3
+  extension 4.4.0 thật, Chromium Playwright bundled + persistent temp profile
+  có path Unicode/khoảng trắng, engine 0.4.0 và HTTPS fixture loopback.
+- E2E Options chọn port random thật → discovery → bind/heartbeat Default;
+  Profile 1 không bind không ready; mở lại Default đã mở không tạo run; extension
+  thực hiện openUrl/type/click bằng content script + chrome.debugger, ACK settled.
+  Stop khi waitFor đang active: nhận cancellation receipt/quiescent. Stop worker
+  bằng CDP, hết heartbeat mất ready, wake/bind lại; disable/enable extension thật
+  qua chrome://extensions cũng mất/khôi phục ready. Revoke grant không kill Chrome.
+- `node --test backend/test/browser/workflow-health.test.js`: **1/1**, dashboard
+  dist + backend/Socket.IO: chưa lease khóa nút, xin lease → tải catalog → mở Chrome
+  profile → starting/ready qua poll, lỗi health/offline và không lộ path/token.
+- Unit/integration: allowOpen và grant bắt buộc, viewer/wrong browser lease bị
+  chặn; traversal/unknown profile/extra URL/path/flags/env bị từ chối. Fixed argv,
+  cwd/env/Unicode, launch deadline, hai opens đồng thời không spawn trùng; wrong
+  client/nonce và worker khác không thay binding fresh/busy. Foreground lock giữ
+  qua cancellation đến matching late ACK, chặn profile khác/native/selector picker.
+- Debugger regression test: target attached bởi CDP khác vẫn phải attach/prove
+  session của extension; ownership proof thất bại không gửi input. Giữ selector,
+  file picker/cancel, content/media/pipeline suites và ZIP allowlist 5 runtime files.
+
+Tất cả dùng runtime/token/cert/profile tạm. Không sửa ref, env/Preferences/Secure
+Preferences/profile người dùng; không cài task, post/upload website thật hoặc
+deploy VPS. Chưa nghiệm thu GUI unattended/locked desktop/Session 0 trên máy nhà,
+Chrome stable do người dùng cài, website đăng nhập và WAN/VPS thật. Test sideload
+dùng Chromium theo hướng dẫn chính thức Playwright; flags TLS/host mapping/extension
+chỉ ở fixture, không đi vào production spawn. Hướng dẫn tại
+[WORKFLOW_CHROME](WORKFLOW_CHROME.md).
+
+WFI-05 readiness regression: bind alone does not mark ready; a nonce-echo heartbeat is required. Matching cleanup receipts remain admissible after local policy removes a profile, without refreshing readiness or admitting new work. Wrong nonce/client remains rejected.

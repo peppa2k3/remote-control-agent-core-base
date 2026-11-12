@@ -1,5 +1,13 @@
 # WFI-05 — Mở Chrome profile và readiness extension
 
+Trạng thái: **Completed (source + acceptance local, 2026-11-12)**.
+Engine 0.4.0 / extension 4.4.0. Operation mới dùng **API v2 có grant** theo
+contract hiện tại; dòng v1 bên dưới là yêu cầu lịch sử, không mở bypass v1.
+Hướng dẫn: [WORKFLOW_CHROME](../../../WORKFLOW_CHROME.md).
+Bằng chứng Chromium unpacked extension thật/profile tạm, quyền, ACK/cancel,
+worker reconnect và disable/enable: [VALIDATION](../../../VALIDATION.md).
+Chưa deploy VPS, dùng profile đăng nhập hoặc cài startup task thật.
+
 Đọc README chung; phụ thuộc WFI-04. Đọc engine profile helper/main, extension
 manifest/background/options/content và file-picker trước sửa.
 
