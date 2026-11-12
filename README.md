@@ -1,5 +1,12 @@
 # Remote Control Agent — Core Starter 0.1
 
+Engine workflow đã được đóng gói trong `local-agent/workflow-engine/`, extension
+trong `local-agent/chrome-reels-extension/`. Sau `npm ci`, chạy engine riêng bằng
+`npm run workflow:engine`; xem [hướng dẫn package](local-agent/workflow-engine/README.md).
+Bản WFI-03 có mode integrated với local policy/grant v2 và extension 4.3.0;
+xem [cấu hình grant](docs/WORKFLOW_GRANTS.md). Standalone/v1 giữ tương thích cũ;
+supervisor và durable jobs toàn tuyến chưa triển khai.
+
 Workflow bridge: panel **Kịch bản tự động** điều khiển scenario đã lưu trong
 Local Workflow Agent qua HTTP loopback và active lease hiện có. Xem
 [cấu hình workflow API và terminal CLI](docs/WORKFLOW.md).

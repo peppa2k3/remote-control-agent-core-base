@@ -63,3 +63,38 @@ Socket.IO path /socket.io. Browser dùng cookie, agent dùng auth {kind:'agent',
 | session:revoked | VPS → browser/runner | sessionId,reason; browser thêm deviceId |
 
 Core không có protocol để chạy script đã cấu hình trên Local Runner. Remote Terminal là luồng riêng qua active lease, giới hạn thời gian/kích thước và chỉ chạy CMD/PowerShell trên Windows bằng quyền OS của Local Runner.
+# Engine workflow đóng gói WFI-02
+
+`local-agent/workflow-engine/` phục vụ HTTP loopback API v1 trên máy local,
+không là endpoint HTTP công khai mới của backend. Hợp đồng v1 và schema ở
+[AUTOMATION_API](../local-agent/workflow-engine/docs/AUTOMATION_API.md), cấu hình
+bridge ở [WORKFLOW](WORKFLOW.md). Token chỉ ở local; frontend dùng relay đã có.
+
+Các operation hiện có giữ nguyên: profiles/scenarios/describe/runs/status/run/stop.
+Bootstrap bản core không khởi tạo remote-client HTTP cũ hoặc đọc remote.json;
+GET `/api/remote/status` sau auth dashboard trả enabled=false, POST `/api/remote/*`
+sau auth trả 410. `/remote` là trang thông tin; không có pairing control-server.
+Không thêm health/grant/profile-open API v2 ở WFI-02. V1 Idempotency-Key ở RAM,
+HTTP 202 chỉ accepted và hủy HTTP không dừng workflow đã nhận.
+# WFI-03 integrated API và grant
+
+Mode integrated (engine 0.2.0) implement HTTP loopback mới với Bearer local:
+GET `/api/v2/health`; PUT/GET `/api/v2/grants/:grantId`; POST
+`/api/v2/grants/:grantId/revoke`; GET profiles/scenarios/describe/runs/status,
+POST runs và runs/:runId/stop dưới `/api/v2`. Catalog/run/status/stop cần headers
+X-Workflow-Grant, X-Workflow-Fence, X-Workflow-Engine-Instance; mutation cần JSON,
+run/stop cần Idempotency-Key. Body/schema và giới hạn theo contract subset:
+[WORKFLOW_GRANTS](WORKFLOW_GRANTS.md).
+
+Socket mới: workflow:v2:capabilities, workflow:v2:grant, workflow:v2:revoke,
+workflow:v2:dispatch và workflow:v2:request. Event workflow:request cũ được route
+v2 khi agent advertise v2; FE không gửi grant/fence/user/browser/expiry. Backend
+derive job correlation ID cho retry run, stop cũ được thêm key phía server.
+Takeover trả 409 khi barrier chưa quiescent. Agent disconnect không tự clear DB
+barrier; counter/barrier tồn tại qua backend restart, leases không phục hồi.
+
+API v1 và Bearer token trên API dashboard cũ bị chặn trong integrated mode;
+dashboard session local và extension protocol vẫn riêng. Extension 4.3.0 gửi
+settlementVersion=1 và settled receipt; thiếu/false không advance, không nhả khóa.
+HTTP JSON engine chặn duplicate/prototype keys. Chưa implement openProfile,
+GET jobs, report/reconcile/queue/retention toàn tuyến hoặc supervisor.

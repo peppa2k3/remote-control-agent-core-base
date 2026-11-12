@@ -1,4 +1,22 @@
 # Kiến trúc và luồng
+
+WFI-03 thêm backend workflow-grants relay, runner workflow-v2 adapter và engine
+integrated API/policy. Browser dùng event cũ được route v2 theo capability hoặc
+workflow:v2:request; grant được backend cấp từ auth/lease, không từ params FE.
+SQLite workflow_control giữ fence/grant metadata/barrier; engine lưu local
+workflow-grants.json, không raw variables trên VPS. Watchdog + per-step guard
+thu hồi quyền; quiescence tách khỏi state cancelled. Extension 4.3.0 xác nhận
+content idle/input completion. Standalone/v1 vẫn riêng; supervisor/jobs/report
+toàn tuyến chưa có. Xem [WORKFLOW_GRANTS](WORKFLOW_GRANTS.md).
+
+WFI-02 đã vendor engine CommonJS tại `local-agent/workflow-engine/` (workspace
+riêng) và extension MV3 tại `local-agent/chrome-reels-extension/`. Runner ESM gọi
+engine qua HTTP v1 loopback hiện có, không import engine internals. Hai process
+khởi động riêng; legacy HTTP polling control-server không được bootstrap gọi.
+Root lock quản lý checkout; standalone exporter tạo lock runtime từ root lock.
+Docker VPS chỉ đưa backend src/frontend dist vào final image; manifest workspace
+engine có trong build để npm resolve, không chạy Chrome/engine trên VPS.
+
 ```mermaid
 flowchart TD
   UI["Web React"] --> API["VPS Express + Socket.IO"]

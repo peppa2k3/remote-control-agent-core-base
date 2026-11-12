@@ -1,0 +1,272 @@
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const readline = require('readline');
+const { spawn } = require('child_process');
+const { monitorEventLoopDelay } = require('perf_hooks');
+const { randomBytes, timingSafeEqual } = require('crypto');
+const { port, dataDir, scenariosDir, dashboardPath, chromePath, profile, userDataDir } = require('./config');
+const { createScenarioStore } = require('./workflow/scenario-store');
+const { chooseFile } = require('./integrations/chrome/file-picker');
+const { createProfileCache } = require('./integrations/chrome/profiles');
+const { inspectVideo, downloadVideo } = require('./integrations/video/video-download');
+const { createWorkflows } = require('./workflow/workflows');
+const { createAutomationApi } = require('./http/automation-api');
+const { createActivityStore } = require('./storage/activity-store');
+const { createCachedDownloader } = require('./storage/download-cache');
+const { createMongoSync } = require('./integrations/mongo/mongo-sync');
+const { mongoSettings } = require('./env');
+const { createContentApi } = require('./http/content-api');
+const { createMediaGuard } = require('./workflow/media-guard');
+const {createIntegratedApi} = require('./http/integrated-api');
+const {parseStrictJson} = require('./http/strict-json');
+const mode = process.env.LOCAL_AGENT_MODE || 'standalone';
+if (!['standalone','integrated'].includes(mode)) throw new Error('Invalid LOCAL_AGENT_MODE');
+let integrated = null;
+// Core uses its paired Socket.IO runner. Never instantiate legacy HTTP polling
+// or read its stored credentials in this distribution.
+const daemon = process.argv[2] === '--daemon' || process.env.LOCAL_AGENT_DAEMON === '1';
+
+const scenarios = createScenarioStore(scenariosDir);
+const eventLoop = monitorEventLoopDelay({ resolution: 20 });
+eventLoop.enable();
+let previousCpu = process.cpuUsage(), previousCpuAt = process.hrtime.bigint();
+let performance = { cpuPercent: 0, eventLoopP95Ms: 0, memoryMb: 0 };
+let filePickerPending = false;
+// Request handlers only read an in-memory snapshot; metadata I/O is asynchronous.
+const profileCache = createProfileCache(userDataDir, profile);
+const profiles = profileCache.get;
+const activity = createActivityStore(dataDir);
+const mongoSync = createMongoSync(activity, { settings: mongoSettings });
+const content = createContentApi({ mongo: mongoSync, activity, readBody });
+const mediaGuard = createMediaGuard({ activity, mongo: mongoSync });
+const cachedDownloader = createCachedDownloader(activity, downloadVideo);
+const workflows = createWorkflows({ scenarios, defaultProfile: profile, profiles, activity, mediaGuard, strictSettlement:mode==='integrated', authorize: (id,step) => integrated?.authorize(id,step), prepareUpload: content.prepareUpload, async downloadVideo(step, signal, context) {
+  const release = await mediaGuard.check(step, null, { ...context, signal });
+  try { return await cachedDownloader(step, signal); } finally { release(); }
+}, openFolder(folderPath) {
+  const folder = path.resolve(folderPath);
+  if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) throw new Error(`Folder does not exist: ${folder}`);
+  return launch('explorer.exe', [folder]);
+} });
+function launch(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { detached: true, stdio: 'ignore' });
+    child.once('error', reject);
+    child.once('spawn', () => { child.unref(); resolve(); });
+  });
+}
+function readBody(request) {
+  return new Promise((resolve, reject) => {
+    let chunks = [], size = 0, tooLarge = false;
+    request.on('data', chunk => {
+      size += chunk.length;
+      if (size > 100000) { tooLarge = true; chunks = []; reject(Object.assign(new Error('Request too large'), { status: 413 })); }
+      if (!tooLarge) chunks.push(chunk);
+    });
+    request.on('end', () => {
+      if (tooLarge) return;
+      try { resolve(parseStrictJson(Buffer.concat(chunks).toString('utf8'))); } catch { reject(Object.assign(new Error('INVALID_JSON'),{status:400})); }
+    });
+    request.on('error', reject);
+  });
+}
+const automation = createAutomationApi({ workflows, scenarios, profiles, readBody });
+if (mode === 'integrated') {
+  if (!automation.enabled) throw new Error('Integrated mode requires LOCAL_AGENT_API_TOKEN');
+  integrated = createIntegratedApi({workflows,scenarios,profiles,scenariosDir,dataDir,policyFile:path.resolve(__dirname,'..',process.env.LOCAL_AGENT_POLICY_FILE || path.join(dataDir,'workflow-policy.json')),authorized:automation.authorized,readBody});
+}
+const dashboardToken = randomBytes(32).toString('hex');
+function dashboardAuthorized(request) {
+  const candidate = request.headers['x-local-agent-session'];
+  return typeof candidate === 'string' && /^[a-f0-9]{64}$/.test(candidate)
+    && timingSafeEqual(Buffer.from(candidate), Buffer.from(dashboardToken));
+}
+
+const server = http.createServer(async (request, response) => {
+  const json = (code, data) => {
+    response.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    response.end(JSON.stringify(data));
+  };
+  let url;
+  try { url = new URL(request.url, `http://127.0.0.1:${port}`); }
+  catch { return json(400, { error: 'Invalid request URL' }); }
+  const route = url.pathname;
+  if (request.headers.host !== `127.0.0.1:${port}` && request.headers.host !== `localhost:${port}`) return json(403, { error: 'Host not allowed' });
+  const origin = request.headers.origin;
+  if (origin && origin !== `http://127.0.0.1:${port}` && !/^chrome-extension:\/\/[a-z]+$/.test(origin)) return json(403, { error: 'Origin not allowed' });
+  if (request.method === 'GET' && ['/remote.js', '/remote.css', '/issues.js'].includes(route)) {
+    response.writeHead(200, { 'Content-Type': route.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    response.end(fs.readFileSync(route.endsWith('.js') ? path.join(path.dirname(dashboardPath), route.slice(1)) : path.join(path.dirname(dashboardPath), 'remote.css'))); return;
+  }
+  if (request.method === 'GET' && ['/', '/content', '/content/', '/remote', '/remote/'].includes(route)) {
+    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    response.end(fs.readFileSync(route === '/' ? dashboardPath : path.join(path.dirname(dashboardPath), route.startsWith('/remote') ? 'remote.html' : 'content.html'), 'utf8').replaceAll('__LOCAL_AGENT_DASHBOARD_TOKEN__', dashboardToken));
+    return;
+  }
+  try {
+    if (route.startsWith('/api/remote/')) {
+      if (!dashboardAuthorized(request) || (origin && origin !== `http://127.0.0.1:${port}`)) return json(403, { error: 'Local dashboard approval required' });
+      if (request.method === 'GET' && route === '/api/remote/status') return json(200, { enabled: false, configured: false, reason: 'Legacy HTTP remote control is disabled in the core distribution.' });
+      if (request.method === 'POST') return json(410, { error: 'Use the paired core Local Runner; legacy HTTP remote control is disabled.' });
+      return json(405, { error: 'Method not allowed' });
+    }
+    if (route.startsWith('/api/v2/')) { if (!integrated) return json(404,{error:'INCOMPATIBLE'}); return await integrated.handle(request,url,json); }
+    if (route.startsWith('/api/v1/')) { if (integrated) return json(403,{error:'GRANT_REQUIRED'}); return await automation.handle(request, url, json); }
+    if (route.startsWith('/api/')) {
+      const origin = request.headers.origin;
+      // Chrome may omit Origin on extension GETs. Options uses a read-only POST
+      // for discovery so the browser supplies its extension origin explicitly.
+      const profileDiscovery = route === '/api/profiles' && ['GET', 'POST'].includes(request.method);
+      const extensionRead = profileDiscovery && /^chrome-extension:\/\/[a-z]+$/.test(origin || '');
+      if (origin && origin !== `http://127.0.0.1:${port}` && !extensionRead) throw new Error('Origin not allowed');
+      if (!extensionRead && !dashboardAuthorized(request) && (integrated || automation.enabled && !automation.authorized(request))) return json(401, { error: 'Local dashboard session required' });
+      if (route.startsWith('/api/content/')) return await content.handle(request, url, json);
+      const selected = url.searchParams.get('profile') || profile;
+      if (request.method === 'GET' && route === '/api/issues') return json(200, { profiles: profiles().map(p => workflows.status(p.directory)), storage: activity.syncStatus() });
+      if (request.method === 'POST' && route === '/api/confirm') {
+        if (!dashboardAuthorized(request)) return json(403, { error: 'Local dashboard approval required' });
+        const body = await readBody(request);
+        return json(200, workflows.resolveConfirmation(body.profile, body.executionId, body.id, body.proceed));
+      }
+      if (request.method === 'GET' && route === '/api/status') return json(200, workflows.status(selected));
+      if (request.method === 'GET' && route === '/api/history') return json(200, { runs: workflows.listRuns(selected), storage: activity.syncStatus() });
+      const historyMatch = route.match(/^\/api\/history\/([0-9a-f-]{36})$/);
+      if (request.method === 'GET' && historyMatch) {
+        const run = workflows.getRun(historyMatch[1]);
+        return json(run ? 200 : 404, run || { error: 'Run not found' });
+      }
+      if (profileDiscovery) {
+        return json(200, { defaultProfile: profile, automationEnabled: automation.enabled, storage: activity.syncStatus(), capabilities: ['remote-control-v1', 'shared-content-v1', 'activity-history-v1', 'download-cache-v1', 'automation-api-v1', 'variables-v1', 'video-download-v1', 'video-quality-best-v1', 'download-references-v1', 'scenario-management-v1'], performance, profiles: profiles().map(item => ({ ...item, ...workflows.status(item.directory) })) });
+      }
+      if (request.method === 'POST' && route === '/api/profiles/open') {
+        const body = await readBody(request);
+        workflows.session(body.profile);
+        await launch(chromePath, [`--user-data-dir=${userDataDir}`, `--profile-directory=${body.profile}`, `http://127.0.0.1:${port}`]);
+        return json(200, { ok: true });
+      }
+      if (request.method === 'GET' && route === '/api/pick/status') return json(200, workflows.session(selected).picker);
+      if (request.method === 'POST' && route === '/api/choose-file') {
+        if (filePickerPending) throw new Error('Hộp chọn file đang mở. Chọn file hoặc Hủy trong cửa sổ đó.');
+        const body = await readBody(request);
+        if (filePickerPending) throw new Error('Hộp chọn file đang mở');
+        filePickerPending = true;
+        try { return json(200, { filePath: await chooseFile(body.initialDirectory || '') }); }
+        finally { filePickerPending = false; }
+      }
+      if (request.method === 'POST' && route === '/api/pick/start') {
+        const body = await readBody(request);
+        const s = workflows.session(body.profile);
+        if (s.running) throw new Error('Stop this profile before picking an element');
+        if (!workflows.status(s.profile).extensionConnected) throw new Error('Extension chưa kết nối profile này');
+        s.picker = { id: s.picker.id + 1, active: true, result: null };
+        return json(200, s.picker);
+      }
+      if (request.method === 'GET' && route === '/api/scenarios') return json(200, { names: scenarios.list() });
+      const cloneMatch = route.match(/^\/api\/scenarios\/([^/]+)\/clone$/);
+      if (cloneMatch && request.method === 'POST') {
+        const body = await readBody(request);
+        return json(200, { name: body.name, scenario: scenarios.clone(cloneMatch[1], body.name) });
+      }
+      const match = route.match(/^\/api\/scenarios\/([^/]+)$/);
+      if (match && request.method === 'GET') return json(200, scenarios.load(match[1]));
+      if (match && request.method === 'DELETE') {
+        if (workflows.usesScenario(match[1])) throw new Error('Stop workflows using this scenario before deleting it');
+        scenarios.remove(match[1]);
+        return json(200, { ok: true });
+      }
+      if (match && request.method === 'PUT') {
+        scenarios.save(match[1], await readBody(request));
+        return json(200, { ok: true });
+      }
+      if (request.method === 'POST' && route === '/api/video/inspect') {
+        const body = await readBody(request);
+        return json(200, await inspectVideo(body.url));
+      }
+      if (request.method === 'POST' && route === '/api/run') {
+        const body = await readBody(request);
+        const run = workflows.start(body.profile || profile, scenarios.load(body.name), body.uploadPath || '', body.name, body.variables);
+        return json(200, { ok: true, ...run });
+      }
+      if (request.method === 'POST' && route === '/api/stop') {
+        const body = await readBody(request);
+        workflows.stop(body.profile || profile);
+        return json(200, { ok: true });
+      }
+      return json(404, { error: 'Not found' });
+    }
+    if (request.method !== 'POST' || !['/next', '/result', '/state', '/pick/next', '/pick/result'].includes(route)) {
+      return json(404, { error: 'Not found' });
+    }
+    const body = await readBody(request);
+    const s = workflows.connect(body);
+    if (route === '/next') return json(200, workflows.next(s));
+    if (route === '/result') workflows.result(s, body);
+    if (route === '/pick/next') return json(200, s.picker);
+    if (route === '/pick/result' && s.picker.active && body.id === s.picker.id) {
+      s.picker.active = false; s.picker.result = body.locator || null;
+    }
+    return json(200, { running: s.running, runId: s.runId, ok: true });
+  } catch (error) {
+    return json(error.status || 400, { error: route.startsWith('/api/v2/') ? error.code || 'REQUEST_REJECTED' : String(error.message || error) });
+  }
+});
+server.requestTimeout = 15000;
+server.headersTimeout = 10000;
+const expiry = setInterval(() => { integrated?.tick(); workflows.expire(); }, 250);
+expiry.unref();
+const performanceTimer = setInterval(() => {
+  const now = process.hrtime.bigint(), cpu = process.cpuUsage();
+  performance = {
+    cpuPercent: Math.round(((cpu.user - previousCpu.user) + (cpu.system - previousCpu.system)) / (Number(now - previousCpuAt) / 1000) * 1000) / 10,
+    eventLoopP95Ms: Math.round(eventLoop.percentile(95) / 1e5) / 10,
+    memoryMb: Math.round(process.memoryUsage().rss / 1048576 * 10) / 10
+  };
+  previousCpu = cpu; previousCpuAt = now; eventLoop.reset();
+}, 2000);
+performanceTimer.unref();
+profileCache.ready.then(() => { if (closing) return; server.listen(port, '127.0.0.1', () => {
+  console.log(`Local agent ready. Default Chrome profile: ${profile}.`);
+  console.log(`Dashboard: http://127.0.0.1:${port}`);
+  console.log(`Content manager: http://127.0.0.1:${port}/content`);
+  console.log(`MongoDB ${activity.syncStatus().database}: ${activity.syncStatus().enabled ? 'configured; connection status in Content manager' : 'set MONGODB_URI in .env to connect'}`);
+  console.log(daemon ? 'Daemon mode: stdin EOF does not stop the agent.' : 'Commands: run <scenario.json> [--profile "Profile 1"] [--upload "path"] | stop [profile] | status | exit');
+  terminal?.prompt();
+}); });
+server.on('error', error => {
+  console.error(error.code === 'EADDRINUSE' ? `Port ${port} is already in use. Exit the previous local agent, then run this version again.` : error);
+  process.exitCode = 1; void shutdown();
+});
+const terminal = daemon ? null : readline.createInterface({ input: process.stdin, output: process.stdout, prompt: 'agent> ' });
+terminal?.on('line', line => {
+  const command = line.trim();
+  try {
+    if (command.startsWith('run ')) {
+      const tokens = command.slice(4).match(/"[^"]*"|\S+/g)?.map(value => value.replace(/^"|"$/g, '')) || [];
+      const [file, ...flags] = tokens;
+      let selected = profile, uploadPath = '';
+      for (let i = 0; i < flags.length; i += 2) {
+        if (!flags[i + 1] || !['--profile', '--upload'].includes(flags[i])) throw new Error('Use --profile "Profile 1" or --upload "path"');
+        if (flags[i] === '--profile') selected = flags[i + 1]; else uploadPath = flags[i + 1];
+      }
+      workflows.start(selected, JSON.parse(fs.readFileSync(path.resolve(file), 'utf8')), uploadPath);
+    } else if (command === 'stop' || command.startsWith('stop ')) workflows.stop(command.slice(5).trim().replace(/^"|"$/g, '') || profile);
+    else if (command === 'status') console.log(JSON.stringify(profiles().map(item => workflows.status(item.directory)), null, 2));
+    else if (command === 'exit') { terminal.close(); return; }
+    else console.log('Commands: run <scenario.json> [--profile "Profile 1"] [--upload "path"] | stop [profile] | status | exit');
+  } catch (error) { console.error(error.message); }
+  terminal.prompt();
+});
+let closing = false;
+async function shutdown() {
+  if (closing) return; closing = true;
+  integrated?.close();
+  terminal?.close(); clearInterval(expiry); clearInterval(performanceTimer); eventLoop.disable();
+  profiles().forEach(item => workflows.stop(item.directory));
+  server.close(); server.closeIdleConnections();
+  const timeout = setTimeout(() => process.exit(process.exitCode || 0), 15000); timeout.unref();
+  await mongoSync.close();
+}
+terminal?.on('close', () => { void shutdown(); });
+process.on('SIGTERM', () => { void shutdown(); });
+process.on('SIGINT', () => { void shutdown(); });

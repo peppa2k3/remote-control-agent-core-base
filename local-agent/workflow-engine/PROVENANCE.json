@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 1,
+  "importedOn": "2026-11-11",
+  "source": "user-provided local reference: ref/local_workflow_agent-dev-remote",
+  "upstreamCommit": null,
+  "license": "Not declared by source; preserve ownership, do not infer a license.",
+  "hashMeaning": "SHA-256 of original source bytes before local adaptations",
+  "files": [
+    {
+      "source": "local-workflow-agent/src/cli.js",
+      "destination": "local-agent/workflow-engine/src/cli.js",
+      "sha256": "d3456ffd71c6d9625560c528a685983a9817161b7c66d70bef38d054705c96f5"
+    },
+    {
+      "source": "local-workflow-agent/src/config.js",
+      "destination": "local-agent/workflow-engine/src/config.js",
+      "sha256": "3f87a307d6cf6b573523436273da2819f26d3f0129aff524210369441cb3f217"
+    },
+    {
+      "source": "local-workflow-agent/src/env.js",
+      "destination": "local-agent/workflow-engine/src/env.js",
+      "sha256": "c82ee65cdd4265a9b06de8b4a4fdb4cd0b77fe6eedaa33b32fb4ccc739b4f6ea"
+    },
+    {
+      "source": "local-workflow-agent/src/http/automation-api.js",
+      "destination": "local-agent/workflow-engine/src/http/automation-api.js",
+      "sha256": "43fd0476731a08f6487c4548f1313c71c52f637ba33d8d4c34cb3541e8442940"
+    },
+    {
+      "source": "local-workflow-agent/src/http/content-api.js",
+      "destination": "local-agent/workflow-engine/src/http/content-api.js",
+      "sha256": "356239b9f7de2acaf450a4981418327e696b779dc10992e95a20f3d4b1090bfb"
+    },
+    {
+      "source": "local-workflow-agent/src/integrations/chrome/file-picker.js",
+      "destination": "local-agent/workflow-engine/src/integrations/chrome/file-picker.js",
+      "sha256": "63a26941544039c84440e87c73b1fe360ce5d19ddb00285f7573b1a0fe081ef0"
+    },
+    {
+      "source": "local-workflow-agent/src/integrations/chrome/file-picker.ps1",
+      "destination": "local-agent/workflow-engine/src/integrations/chrome/file-picker.ps1",
+      "sha256": "6354fd21e821cfea9b462e25cdc5bf36c1a5c28d587e96fc6431c223ddcd387b"
+    },
+    {
+      "source": "local-workflow-agent/src/integrations/chrome/profiles.js",
+      "destination": "local-agent/workflow-engine/src/integrations/chrome/profiles.js",
+      "sha256": "f4fc277c8b97bf620ae049839a103516725c9e9e400b9d41656a23b5b42f6dab"
+    },
+    {
+      "source": "local-workflow-agent/src/integrations/mongo/mongo-dns.js",
+      "destination": "local-agent/workflow-engine/src/integrations/mongo/mongo-dns.js",
+      "sha256": "6b5acbeacb3947f93960f9c1be7fc4d45b8c5173dc22c033becd7ab69f5636a9"
+    },
+    {
+      "source": "local-workflow-agent/src/integrations/mongo/mongo-sync.js",
+      "destination": "local-agent/workflow-engine/src/integrations/mongo/mongo-sync.js",
+      "sha256": "24af68d272ff99389c039e1bc472d1e526febe8df62b137704a0a2a462fa6276"
+    },
+    {
+      "source": "local-workflow-agent/src/integrations/remote/remote-client.js",
+      "destination": "local-agent/workflow-engine/src/integrations/remote/remote-client.js",
+      "sha256": "ac5eab17e4a0af6dc89f779f44efbe707520f4aca5a9111e40e40df6393fa6ed"
+    },
+    {
+      "source": "local-workflow-agent/src/integrations/remote/remote-executor.js",
+      "destination": "local-agent/workflow-engine/src/integrations/remote/remote-executor.js",
+      "sha256": "7165c004f57460fd49c4960d0cde8b8fdc6fce89e23d09a4d372d25845baabce"
+    },
+    {
+      "source": "local-workflow-agent/src/integrations/video/video-download.js",
+      "destination": "local-agent/workflow-engine/src/integrations/video/video-download.js",
+      "sha256": "bf42f16aa545c0b2c7aa33f7fe51dbf673b16ef4a94b01d74ffa88d264ab1642"
+    },
+    {
+      "source": "local-workflow-agent/src/main.js",
+      "destination": "local-agent/workflow-engine/src/main.js",
+      "sha256": "c4cac6a0067e3490c7d952e93025844aca109315881159cc257af604ebb44019"
+    },
+    {
+      "source": "local-workflow-agent/src/paths.js",
+      "destination": "local-agent/workflow-engine/src/paths.js",
+      "sha256": "08466bc00a72cc0d1bd1635adefcf7df8b8637fb5da7d74b43f855fba4a47bee"
+    },
+    {
+      "source": "local-workflow-agent/src/storage/activity-store.js",
+      "destination": "local-agent/workflow-engine/src/storage/activity-store.js",
+      "sha256": "0c1deb3ccea7f911f1488e7ba7b6a8e028dc5ec5c6215d81f2252c174626ef2a"
+    },
+    {
+      "source": "local-workflow-agent/src/storage/casefold.js",
+      "destination": "local-agent/workflow-engine/src/storage/casefold.js",
+      "sha256": "415404bf1f267953318ab6ed620bc9e02b791edba66b1cf9647f36e488847b00"
+    },
+    {
+      "source": "local-workflow-agent/src/storage/download-cache.js",
+      "destination": "local-agent/workflow-engine/src/storage/download-cache.js",
+      "sha256": "574f675f6e07f947c78035c5d33db71fc6d28d40a62a26123d2ff939b6561495"
+    },
+    {
+      "source": "local-workflow-agent/src/workflow/media-guard.js",
+      "destination": "local-agent/workflow-engine/src/workflow/media-guard.js",
+      "sha256": "d34d207b58ff38915883ffe715684ba32d0ff49989c04ecc894158fe9b18d04a"
+    },
+    {
+      "source": "local-workflow-agent/src/workflow/scenario-store.js",
+      "destination": "local-agent/workflow-engine/src/workflow/scenario-store.js",
+      "sha256": "a2a1a8b87bba7e58098edb6b483bb2d82c76d07dc336a524fa216667c1946031"
+    },
+    {
+      "source": "local-workflow-agent/src/workflow/variables.js",
+      "destination": "local-agent/workflow-engine/src/workflow/variables.js",
+      "sha256": "372103b037aba437e9ceed0a9ca146390593afc4036411aa1b0f3965d7672856"
+    },
+    {
+      "source": "local-workflow-agent/src/workflow/workflows.js",
+      "destination": "local-agent/workflow-engine/src/workflow/workflows.js",
+      "sha256": "388e62c0b7055a58786785ca58ffba759cff60e200eb289d066e9e802a0d53a1"
+    },
+    {
+      "source": "local-workflow-agent/dashboard/content.html",
+      "destination": "local-agent/workflow-engine/dashboard/content.html",
+      "sha256": "09d353d97ad9fd1cffeab1d176df6972a5fc4804fd507c7fa55e31c164bc1b68"
+    },
+    {
+      "source": "local-workflow-agent/dashboard/index.html",
+      "destination": "local-agent/workflow-engine/dashboard/index.html",
+      "sha256": "b4c932e0043bc63b4b3248a7e3fe9587ca3a32eae50ff3985f5c015dafa9cf54"
+    },
+    {
+      "source": "local-workflow-agent/dashboard/issues.js",
+      "destination": "local-agent/workflow-engine/dashboard/issues.js",
+      "sha256": "6f7e30b9dc3a83beb3545cc60d3bf3e7ff342eb9f8fea3431c846d695b87e6df"
+    },
+    {
+      "source": "local-workflow-agent/dashboard/remote.css",
+      "destination": "local-agent/workflow-engine/dashboard/remote.css",
+      "sha256": "cf04de9603251cd8a6231fa0d0f2158b1d2db5465eea9a9e049e3ebcbf6c75bc"
+    },
+    {
+      "source": "local-workflow-agent/dashboard/remote.html",
+      "destination": "local-agent/workflow-engine/dashboard/remote.html",
+      "sha256": "cf2d15753d805ab4323a37b7f76a39349ed8b0f9b24dbf6e83ec177e205e2bd1"
+    },
+    {
+      "source": "local-workflow-agent/dashboard/remote.js",
+      "destination": "local-agent/workflow-engine/dashboard/remote.js",
+      "sha256": "0f82a30808e2efd762b80f6c59c649c36f4a92233b756dfb42faab270a7e6cd1"
+    },
+    {
+      "source": "local-workflow-agent/shared/remote-protocol.js",
+      "destination": "local-agent/workflow-engine/shared/remote-protocol.js",
+      "sha256": "25f08a5fb979d111f2290a5af439800a8819cb81e87dfc70f897e7285d754992"
+    },
+    {
+      "source": "local-workflow-agent/docs/ACTIVITY_STORAGE.md",
+      "destination": "local-agent/workflow-engine/docs/ACTIVITY_STORAGE.md",
+      "sha256": "d7bff1f53c10f4cbf93f0616af2f91707aab4b416c44e545e27ddfb62544010f"
+    },
+    {
+      "source": "local-workflow-agent/docs/AUTOMATION_API.md",
+      "destination": "local-agent/workflow-engine/docs/AUTOMATION_API.md",
+      "sha256": "a4223998cd0e5f78ed8493fca53d9f1893cea204a1f795d56dbd20130e4ad0ee"
+    },
+    {
+      "source": "local-workflow-agent/docs/CLI.md",
+      "destination": "local-agent/workflow-engine/docs/CLI.md",
+      "sha256": "cf75f02c009bff0376419d92a386cea3c30cafa260bf89a687e66e84368a70fe"
+    },
+    {
+      "source": "local-workflow-agent/docs/MONGODB_ATLAS.md",
+      "destination": "local-agent/workflow-engine/docs/MONGODB_ATLAS.md",
+      "sha256": "aaff81afca6c75adab93b8a83941e168dabeb56f5c25a86578914dd5513bdac3"
+    },
+    {
+      "source": "local-workflow-agent/docs/SCENARIOS.md",
+      "destination": "local-agent/workflow-engine/docs/SCENARIOS.md",
+      "sha256": "310d68225b0c769cd9f04917b5f148184d6ff7fe211bee7cce2245945f36ba12"
+    },
+    {
+      "source": "local-workflow-agent/docs/SETUP.md",
+      "destination": "local-agent/workflow-engine/docs/SETUP.md",
+      "sha256": "d7e66b8c7986b0627e77d0c8fac92b2b984bae3b3948b0cb0d7c83d1fe66d9fb"
+    },
+    {
+      "source": "local-workflow-agent/scripts/check-mongodb.js",
+      "destination": "local-agent/workflow-engine/scripts/check-mongodb.js",
+      "sha256": "518f5e069827c6bee1b752a055c70ff70584ca50b2e3b68f1ac0748372dab52d"
+    },
+    {
+      "source": "local-workflow-agent/scripts/install-remote-startup.ps1",
+      "destination": "local-agent/workflow-engine/scripts/install-remote-startup.ps1",
+      "sha256": "d9630d4fd2ed6adc88c063f36439d183696ebd2100584b616e91c564aeb39b6a"
+    },
+    {
+      "source": "local-workflow-agent/scripts/migrate-legacy.ps1",
+      "destination": "local-agent/workflow-engine/scripts/migrate-legacy.ps1",
+      "sha256": "5d44a93dcd2c0451b30f49acdc03559f67e50054929ecca023f84cd2c0739a3d"
+    },
+    {
+      "source": "local-workflow-agent/scripts/run-local-agent.ps1",
+      "destination": "local-agent/workflow-engine/scripts/run-local-agent.ps1",
+      "sha256": "9618419cf9cbc05bdaa2653f57519c653cf036cc71722e01b382da43aff7166f"
+    },
+    {
+      "source": "local-workflow-agent/scripts/setup-video.ps1",
+      "destination": "local-agent/workflow-engine/scripts/setup-video.ps1",
+      "sha256": "bcff7c89114c79618b62e185524396eed91da2f55981241c227215870b821743"
+    },
+    {
+      "source": "local-workflow-agent/index.js",
+      "destination": "local-agent/workflow-engine/index.js",
+      "sha256": "e525c46fad9d6fb9c88fa007ff28ce96b3063b32122323baba2309be9014d193"
+    },
+    {
+      "source": "local-workflow-agent/package.json",
+      "destination": "local-agent/workflow-engine/package.json",
+      "sha256": "7ef2e91f5a6a86d8e1498441bf07b0d6674870f16e1e9776589c228a1d89bbe5"
+    },
+    {
+      "source": "chrome-reels-extension/manifest.json",
+      "destination": "local-agent/chrome-reels-extension/manifest.json",
+      "sha256": "5305bc8f66ce8b2a67fadf77f2da601049b67235bf20f8a8eb71afcf482be545"
+    },
+    {
+      "source": "chrome-reels-extension/background.js",
+      "destination": "local-agent/chrome-reels-extension/background.js",
+      "sha256": "e766e38df891e19cac9e5f45ee4faf78196f508557510c75f848fe81b04a5854"
+    },
+    {
+      "source": "chrome-reels-extension/content.js",
+      "destination": "local-agent/chrome-reels-extension/content.js",
+      "sha256": "d2e83566006b74709cb862dab42b3517b3146d49c17f207e25ba4df319c63194"
+    },
+    {
+      "source": "chrome-reels-extension/options.html",
+      "destination": "local-agent/chrome-reels-extension/options.html",
+      "sha256": "76c392e32e1bb80d0ab4e6219ddcdf0cea78bf2ffef3946a6221fa2ceae876a6"
+    },
+    {
+      "source": "chrome-reels-extension/options.js",
+      "destination": "local-agent/chrome-reels-extension/options.js",
+      "sha256": "dc55999a9e0b313f41e43c7375e73bdd0163caacf6da0c3eed9f7eafd811f27c"
+    },
+    {
+      "source": "chrome-reels-extension/package.ps1",
+      "destination": "local-agent/chrome-reels-extension/package.ps1",
+      "sha256": "b416c86b5b3508cf1ecc5cabd9cfe72e65b0c03e4b16a0813ca76ff8057e02f1"
+    },
+    {
+      "source": "tests/workflows.js",
+      "destination": "local-agent/workflow-engine/test/workflows.test.js",
+      "sha256": "2d4145131bf4bd3cf5d92ff14b87b12a95a6fc0b5b1ebd258b1f4b4e1fbefeb6"
+    },
+    {
+      "source": "tests/scenario-features.js",
+      "destination": "local-agent/workflow-engine/test/scenario-features.test.js",
+      "sha256": "90e4177afb1cc08fa9fc316a5765a4fec6a6d8db474688475b71e3561c40ee36"
+    },
+    {
+      "source": "tests/pipeline.js",
+      "destination": "local-agent/workflow-engine/test/pipeline.test.js",
+      "sha256": "65129e9e696e66ccbe12a9adc6c88e0f10e8872c180f6f97a5c2751a389443e6"
+    },
+    {
+      "source": "tests/activity-history.js",
+      "destination": "local-agent/workflow-engine/test/activity-history.test.js",
+      "sha256": "c95ec833f3591c889ecbc2420493ee31b0b13e631e26a9b6d920c47331b80528"
+    },
+    {
+      "source": "tests/content-manager.js",
+      "destination": "local-agent/workflow-engine/test/content-manager.test.js",
+      "sha256": "60903227a773627cf7060f3926310abe471d0e67cb6c3d118721b5214ecd333e"
+    },
+    {
+      "source": "tests/media-duplicates.js",
+      "destination": "local-agent/workflow-engine/test/media-duplicates.test.js",
+      "sha256": "79ebe0f5e2451fc2d420ae82045a64b0a54567dc2742ceb03ec14d9f5d7b2379"
+    },
+    {
+      "source": "tests/mongo-dns.js",
+      "destination": "local-agent/workflow-engine/test/mongo-dns.test.js",
+      "sha256": "7dda75d4fccf89dc064008fd32e2a46de1bb4017ec6b8844ee3b6b1cc32d33d1"
+    },
+    {
+      "source": "tests/file-picker.js",
+      "destination": "local-agent/workflow-engine/test/file-picker.test.js",
+      "sha256": "24140d01784c4cb78004c30a1e8e114d968c6c8e577589286da55bfddffb9f56"
+    },
+    {
+      "source": "tests/helpers/memory-mongo.js",
+      "destination": "local-agent/workflow-engine/test/helpers/memory-mongo.js",
+      "sha256": "8a50daa79ade48760c6edd17f91d9e282435d09d4b168d3add750c0e42140b4d"
+    },
+    {
+      "source": "tests/env-config.js",
+      "destination": "local-agent/workflow-engine/test/env-config.test.js",
+      "sha256": "0e25b6c3d655fa9953c572a71ab3124ba9b84185120cc25611c250cab682524a"
+    }
+  ],
+  "adaptations": [
+    "Core workspace name/type/Node24 and exact MongoDB dependency; root lock remains authoritative.",
+    "Legacy HTTP client is not instantiated or allowed to read remote credentials in bootstrap; remote dashboard explains core connection.",
+    "Safe standalone exporter with exact file manifest and runtime-only lock, no ref or development dependencies.",
+    "Node-only tests ported; browser sections run separately; authored API/adapter/package/paths tests use temporary state.",
+    "README/setup/env examples updated, sample scenarios replaced with public fixtures, optional startup task renamed to avoid legacy task collision.",
+    "WFI-03 (2026-11-12): engine 0.2.0 adds opt-in integrated mode, pinned local policy, grant/watchdog, persistent fencing/barriers and confirmed quiescence. Extension 4.3.0 reports settlementVersion=1 and settled receipts. Standalone v1 remains explicit legacy behavior."
+  ]
+}

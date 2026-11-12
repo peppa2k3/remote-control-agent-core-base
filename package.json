@@ -5,7 +5,8 @@
   "workspaces": [
     "backend",
     "frontend",
-    "local-agent"
+    "local-agent",
+    "local-agent/workflow-engine"
   ],
   "engines": {
     "node": ">=24.0.0 <25"
@@ -13,9 +14,13 @@
   "scripts": {
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend",
-    "agent": "npm start -w local-agent",
+    "agent": "npm start -w @rca/local-agent",
     "build": "npm run build -w frontend",
     "start": "npm start -w backend",
-    "test": "npm test -w backend && npm test -w local-agent"
+    "test": "npm test -w @rca/backend && npm test -w @rca/local-agent && npm test -w @rca/workflow-engine",
+    "workflow:engine": "npm run start:daemon -w @rca/workflow-engine",
+    "test:workflow": "npm test -w @rca/workflow-engine",
+    "package:workflow": "npm run package:standalone -w @rca/workflow-engine",
+    "package:extension": "powershell -NoProfile -ExecutionPolicy Bypass -File local-agent/chrome-reels-extension/package.ps1"
   }
 }

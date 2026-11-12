@@ -52,7 +52,7 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
   agent.socket.emit('terminal:close',{terminalId:terminal.id,sessionId:terminal.sessionId,reason});return true;
  }
  function terminalError(terminal,message){if(terminalSessions.get(terminal.deviceId)!==terminal)return;terminal.state='error';if(!terminal.errorAudited){db.audit(terminal.userId,terminal.deviceId,'terminal.error');terminal.errorAudited=true}browserTerminalEvent(terminal,'terminal:error',{message:String(message||'Terminal error').slice(0,160)});}
- function stop(d,event){closeTerminal(d,event);const l=db.release(d,event);if(l){agents.get(d)?.socket.emit('session:revoked',{sessionId:l.id,reason:event});io.to(l.browserId).emit('session:revoked',{deviceId:d,sessionId:l.id,reason:event})}}
+ function stop(d,event){workflowRelay.revoke(d,event==='owner.takeover'?'takeover':event==='lease.expired'?'expired':'offline');closeTerminal(d,event);const l=db.release(d,event);if(l){agents.get(d)?.socket.emit('session:revoked',{sessionId:l.id,reason:event});io.to(l.browserId).emit('session:revoked',{deviceId:d,sessionId:l.id,reason:event})}}
  function visible(u){const now=Date.now();return db.all(`SELECT d.id,d.name,d.ownerId,CASE WHEN d.ownerId=? THEN 'owner' ELSE m.role END AS role,l.id AS sessionId,l.userId AS sessionUserId,l.state AS sessionState,l.expires AS sessionExpires FROM devices d LEFT JOIN members m ON m.deviceId=d.id AND m.userId=? LEFT JOIN leases l ON l.deviceId=d.id AND l.expires>? WHERE d.revoked=0 AND (d.ownerId=? OR m.userId IS NOT NULL)`,u,u,now,u).map(d=>{const a=agents.get(d.id),live=!!a&&now-a.seen<25000,status=deviceStatuses.get(d.id),capability=terminalCapabilities.get(d.id),terminal=terminalSessions.get(d.id);return {id:d.id,name:d.name,ownerId:d.ownerId,role:d.role,runnerStatus:live?'online':'offline',lastSeen:a?.seen??null,meshStatus:'not_integrated',workflowSupported:live&&workflowRelay.supported(d.id),status:live&&status&&now-status.updatedAt<=STATUS_MAX_AGE_MS?status:null,terminalSupported:live&&capability?.platform==='win32',terminalShells:live?capability?.shells??[]:[],terminal:terminal?{state:terminal.state,startedAt:terminal.startedAt}:null,session:d.sessionId?{id:d.sessionId,userId:d.sessionUserId,state:d.sessionState,expires:d.sessionExpires}:null}})}
  function broadcast(){const snapshots=new Map();for(const [id,u]of viewers){const s=io.sockets.sockets.get(id);if(!s)continue;if(!snapshots.has(u))snapshots.set(u,visible(u));s.emit('devices:snapshot',snapshots.get(u))}}
  app.get('/api/health',(req,res)=>res.json({status:'ok',at:Date.now()}));
@@ -92,13 +92,15 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
     function handle(event,fn,rateLimited=true){socket.on(event,(p,ack)=>{try{if(rateLimited){if(Date.now()-eventWindow>10000){eventWindow=Date.now();eventCount=0}if(++eventCount>100)fail(429,'Quá nhiều yêu cầu realtime')}if(user(socket.request)!==u)fail(401,'Phiên đăng nhập hết hạn');ack?.({ok:true,...fn(p||{})})}catch(e){ack?.({error:e.message,status:e.status||400})}})}
    handle('session:request',p=>{
     const d=validString(p.deviceId),a=agents.get(d),role=db.role(d,u),current=db.lease(d);
+    if(role==='viewer')fail(403,'Viewer kh?ng ???c ?i?u khi?n');
     if(!a||Date.now()-a.seen>=25000)fail(409,'Local Runner offline');
+     if(workflowRelay.blocked(d)){if(p.force===true){if(role!=='owner')fail(403,'Ch? owner ???c thu h?i');stop(d,'owner.takeover');broadcast()}else if(!current)workflowRelay.revoke(d);fail(409,'Workflow ?ang ch?y ho?c d?ng; ch? Local Runner x?c nh?n quiescent')}
      if(terminalSessions.has(d)){if(p.force===true){if(role!=='owner')fail(403,'Chỉ owner được thu hồi');stop(d,'owner.takeover');broadcast()}fail(409,'Terminal đang chạy hoặc dừng; thử lại sau khi Local Runner xác nhận đã dừng')}
     const {lease:l,old}=db.request(d,u,socket.id,p.force===true);
     if(old){a.socket.emit('session:revoked',{sessionId:old.id,reason:'owner.takeover'});io.to(old.browserId).emit('session:revoked',{deviceId:d,sessionId:old.id,reason:'owner.takeover'})}
      const username=db.one('SELECT name FROM users WHERE id=?',u).name;a.socket.emit('session:offer',{sessionId:l.id,nonce:l.nonce,userId:u,userName:username,owner:role==='owner',expires:l.expires});broadcast();return {sessionId:l.id,state:'pending'}
     });
-   handle('session:renew',p=>{const l=db.renew(p.deviceId,u,socket.id,p.sessionId);agents.get(p.deviceId)?.socket.emit('session:active',{sessionId:l.id,expires:l.expires});return {expires:l.expires}});
+   handle('session:renew',p=>{const l=db.renew(p.deviceId,u,socket.id,p.sessionId);workflowRelay.renew(l);agents.get(p.deviceId)?.socket.emit('session:active',{sessionId:l.id,expires:l.expires});return {expires:l.expires}});
    handle('session:release',p=>{const l=db.lease(p.deviceId);db.role(p.deviceId,u);if(l&&(l.browserId!==socket.id||l.userId!==u))fail(403,'Không sở hữu phiên này');stop(p.deviceId,'lease.released');broadcast();return {}});
     handle('terminal:open',p=>{
      if(!plainObject(p)||!exactKeys(p,['deviceId','sessionId','shell','cols','rows']))fail(400,'Yêu cầu mở Terminal không hợp lệ');
@@ -135,10 +137,10 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
    socket.on('disconnect',()=>{viewers.delete(socket.id);for(const l of db.all('SELECT deviceId FROM leases WHERE browserId=?',socket.id))stop(l.deviceId,'browser.disconnected');broadcast()});
   }
  });
- const sweep=setInterval(()=>{for(const [d,a]of agents)if(Date.now()-a.seen>=25000)a.socket.disconnect(true);for(const l of db.all('SELECT deviceId FROM leases WHERE expires<=?',Date.now()))stop(l.deviceId,'lease.expired');for(const [id,u]of viewers){const s=io.sockets.sockets.get(id);try{if(!s||user(s.request)!==u)throw Error()}catch{s?.disconnect(true)}}db.run('DELETE FROM logins WHERE expires<=?',Date.now());db.run('DELETE FROM pairs WHERE expires<=?',Date.now());broadcast()},2000);sweep.unref();
+ const sweep=setInterval(()=>{workflowRelay.tick();for(const [d,a]of agents)if(Date.now()-a.seen>=25000)a.socket.disconnect(true);for(const l of db.all('SELECT deviceId FROM leases WHERE expires<=?',Date.now()))stop(l.deviceId,'lease.expired');for(const [id,u]of viewers){const s=io.sockets.sockets.get(id);try{if(!s||user(s.request)!==u)throw Error()}catch{s?.disconnect(true)}}db.run('DELETE FROM logins WHERE expires<=?',Date.now());db.run('DELETE FROM pairs WHERE expires<=?',Date.now());broadcast()},2000);sweep.unref();
  // A restart cannot revive a formerly active lease.
  db.run('DELETE FROM leases');
- return {app,http,io,db,close:async()=>{clearInterval(sweep);await new Promise(r=>io.close(r));db.db.close()}};
+ return {app,http,io,db,close:async()=>{clearInterval(sweep);workflowRelay.close();await new Promise(r=>io.close(r));db.db.close()}};
 }
 if(process.argv[1]===import.meta.filename){const core=createApp();core.http.listen(Number(process.env.PORT||4000),process.env.HOST||'127.0.0.1',()=>console.log('RCA backend listening'));for(const signal of ['SIGINT','SIGTERM'])process.on(signal,async()=>{await core.close();process.exit(0)})}
 

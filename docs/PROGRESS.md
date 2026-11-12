@@ -1,5 +1,47 @@
 # Tiến độ
 
+2026-11-12: Hoàn thành WFI-03 policy/grant subset. Engine 0.2.0 integrated mode
+deny-by-default theo local policy/hash/schema/realpath, grant/seq/fencing và
+monotonic watchdog; standalone v1 giữ riêng. Backend workflow_control lưu fence
+và barrier bền vững, runner protocol 2 relay; panel cũ route v2 theo capability.
+Revoke/expiry dừng cả HTTP pending và accepted run khi mất response, takeover
+chờ proof quiescent. Extension 4.3.0 có settlement receipt/content idle probe;
+lỗi port/parent chết không giả settled, ACK trễ không advance. Local dashboard
+run giữ độc lập; không claim sandbox/desktop độc quyền đối với quyền OS/terminal.
+`npm test` exit 0: backend 7/7, runner 13/13, engine 25/25; browser fixtures 3/3,
+build đạt. Windows child+grandchild cancellation, parser, standalone integrated
+install/run/revoke và syntax checks đạt. Test executable runner được cô lập bằng
+source-only temp copy để không đọc cấu hình checkout. Không sửa env thật/ref,
+restart installation hoặc deploy. Chưa full extension worker E2E/WAN/VPS/Linux
+tree/startup; unknown/barrier recovery, supervisor/openProfile/jobs/report/retention
+còn các bước sau. Xem [WORKFLOW_GRANTS](WORKFLOW_GRANTS.md).
+
+2026-11-11: Hoàn thành WFI-02 package/source. Nhập engine CommonJS workspace
+`local-agent/workflow-engine/`, extension MV3 4.2.2 riêng, root lock pin MongoDB
+7.7.0 runtime/Playwright 1.64.0 dev; provenance 58 file nguồn. Bootstrap không
+tạo HTTP polling client cũ/đọc remote.json, mutation cũ trả 410. Thêm exporter
+standalone allowlist + lock runtime và tests engine API thật/core adapter,
+legacy paths/migration temp/ZIP. Root test suites đạt backend 5, runner 13,
+engine 17; 2 browser content/media fixture tests và build đạt. npm ci ở workspace
+temp sạch cùng lock và standalone runtime install/run đạt. Checkout npm ci gặp
+EPERM do native Rolldown bị giữ; npm install đã khôi phục dependency, không dừng
+tiến trình người dùng. Docker build chưa chạy vì daemon không hoạt động.
+Chưa triển khai grant v2/supervisor/jobs/extension E2E/VPS; không thay .env thật,
+credentials, ref hoặc installation đang chạy. Xem [WORKFLOW](WORKFLOW.md) và
+[VALIDATION](VALIDATION.md). WFI-03–08 còn planned.
+
+2026-11-11: Hoàn thành thiết kế WFI-01 theo prompt contract/layout: thêm
+[ADR-001](adr/001-workflow-integration.md), [contract v2](WORKFLOW_INTEGRATION_CONTRACT.md),
+[inventory import/test](WORKFLOW_IMPORT_INVENTORY.md) và manifest SHA-256 29 file
+nguồn chọn lọc. Chốt package engine CommonJS/workspace, extension riêng, local
+policy/grant/fencing/quiescence, job/report retention, migration/rollback và
+failure matrix. Ref không có upstream commit/license được xác minh; không lấy
+HEAD core làm provenance. Phát hiện test layout ref có nhánh recursive copy chưa
+lọc đủ runtime, cần port an toàn trước chạy. `npm test` exit 0: backend 5/5,
+local-agent 13/13 (Windows PTY Node v24.16.0); `npm run build` exit 0. WFI-01
+completed chỉ phần tài liệu; WFI-02–08 planned, chưa copy/đổi runtime, chưa chạy
+engine/extension/ref suite hoặc VPS. Không sửa `.env`, không commit/deploy.
+
 2026-11-11: Thiết lập CodeGraph cho repo. Máy đã có npm global v1.6.2 (trùng
 latest npm khi kiểm tra); cấu hình Codex MCP global và khởi tạo `.codegraph/`.
 Thêm `codegraph.json` loại secrets/runtime/ref/bản sao agent; telemetry giữ

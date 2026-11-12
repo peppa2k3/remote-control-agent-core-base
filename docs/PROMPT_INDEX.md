@@ -5,7 +5,10 @@
 Đã khảo sát source ba app trong `ref/local_workflow_agent-dev-remote/` và bridge
 hiện tại. Xem [phân tích và thứ tự 8 bước](WORKFLOW_INTEGRATION_PLAN.md), sau đó
 dùng [câu lệnh và quy tắc chạy WFI](prompts/planned/workflow-integration/README.md).
-Tất cả đang **Planned**, chưa triển khai engine/supervisor/extension/jobs mới.
+WFI-01 đã **Completed phần thiết kế**, WFI-02 **Completed package/source engine
+và extension**, WFI-03 **Completed policy/grant subset**; WFI-04–08 **Planned**.
+Supervisor/openProfile/jobs toàn tuyến chưa triển khai.
+Xem [ADR-001](adr/001-workflow-integration.md).
 Dãy WFI độc lập với 001–008 dưới đây; không phục hồi generic script runner cũ.
 
 ## Bộ prompt core

@@ -1,7 +1,19 @@
 # Kế hoạch tích hợp Local Workflow Agent
 
-Ngày khảo sát: 2026-11-11. Đây là phân tích source và bộ prompt chuẩn bị triển khai;
-chưa tích hợp runtime, chưa khởi động Chrome/engine, chưa deploy VPS.
+Ngày khảo sát: 2026-11-11. Phân tích được giữ để theo dõi từng bước. WFI-02 đã
+nhập engine/extension và kiểm tra engine thật với temp data; WFI-03 ngày
+2026-11-12 thêm policy/grant v2. Chưa deploy VPS hoặc khởi động installation
+người dùng.
+
+WFI-01 đã chốt thiết kế ngày 2026-11-11: [ADR-001](adr/001-workflow-integration.md),
+[contract v2](WORKFLOW_INTEGRATION_CONTRACT.md),
+[inventory import/test](WORKFLOW_IMPORT_INVENTORY.md) và
+[source checksums](workflow-integration-source.json). Các quyết định bên dưới
+được cụ thể hóa bởi ADR; WFI-02 completed package/source.
+WFI-03 hiện đã implement policy/grant subset, engine 0.2.0 và extension 4.3.0;
+WFI-04–08 còn planned. Xem [cấu hình thực tế](WORKFLOW_GRANTS.md) và
+[hướng dẫn engine](../local-agent/workflow-engine/README.md). Các bảng khảo sát
+bên dưới ghi baseline trước triển khai, không là trạng thái API hiện tại.
 
 ## Kết luận kiến trúc
 

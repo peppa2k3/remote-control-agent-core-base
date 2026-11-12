@@ -26,7 +26,9 @@ export function readWorkflowSettings({env = process.env, directory = agentDirect
   if (config.WORKFLOW_AGENT_ENABLED !== undefined && !['true', 'false'].includes(config.WORKFLOW_AGENT_ENABLED)) {
     fail('CONFIG', 'WORKFLOW_AGENT_ENABLED must be true or false', 503);
   }
+  if (config.WORKFLOW_AGENT_PROTOCOL !== undefined && !['1','2'].includes(config.WORKFLOW_AGENT_PROTOCOL)) fail('CONFIG','WORKFLOW_AGENT_PROTOCOL must be 1 or 2',503);
   return {
+    protocol: Number(config.WORKFLOW_AGENT_PROTOCOL || 1),
     enabled: config.WORKFLOW_AGENT_ENABLED !== 'false',
     baseUrl: config.WORKFLOW_AGENT_URL || `http://127.0.0.1:${workflowEnv.LOCAL_AGENT_PORT || 34719}`,
     token: config.LOCAL_AGENT_API_TOKEN ?? workflowEnv.LOCAL_AGENT_API_TOKEN ?? '',

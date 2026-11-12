@@ -1,8 +1,21 @@
 node_modules
 **/node_modules
 **/.env
+**/.env.*
+!**/.env.example
+**/.env.control
 **/data
+**/data-backup
+**/dist
+**/tools
+**/*.pem
+**/*.key
+**/*.crx
+**/*.sqlite*
 **/credentials.json
+.codegraph
+ref
+local-agent copy
 .git
 infrastructure/meshcentral/meshcentral-data
 infrastructure/meshcentral/meshcentral-files

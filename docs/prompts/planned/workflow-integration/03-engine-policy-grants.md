@@ -1,5 +1,9 @@
 # WFI-03 — Local policy và grant tại engine
 
+Trạng thái: **Completed — source và nghiệm thu local, 2026-11-12**. Giữ đường
+dẫn để tương thích liên kết. WFI-04–08 vẫn planned, không coi kết quả này là
+deploy/Chrome supervisor/durable jobs hoàn chỉnh.
+
 Đọc README chung; phụ thuộc WFI-01/02. Đây là thay đổi bảo mật hai đầu, phải cập
 nhật backend relay và adapter hiện có khi cần để có integration test thực.
 
@@ -34,3 +38,33 @@ nhật backend relay và adapter hiện có khi cần để có integration test
 - Run local độc lập vẫn đúng behavior; HTTP polling cũ không bypass integrated mode.
 - Test dùng server/engine thật với temp data, có fake time chỉ ở unit test phù hợp;
   test/build và docs behavior mới pass trước chuyển bước.
+
+## Kết quả và bằng chứng
+
+- Engine 0.2.0 giữ engine/validation/history/media guard nguồn tham chiếu; thêm
+  standalone/integrated, local policy hash/schema/realpath, grant/fence/seq và
+  watchdog monotonic. Integrated chặn v1/native dashboard token bypass; không
+  khởi tạo HTTP polling cũ, không đọc/xóa credential remote cũ.
+- Backend giữ persistent workflow_control fence/barrier; cấp grant từ auth +
+  user/browser/device/session lease thật. Runner protocol 2 gọi HTTP loopback;
+  panel cũ được route v2 theo capability, không cho FE mint grant.
+- Dừng quyền/HTTP pending và run đã accepted, kể cả mất response POST. Takeover
+  chờ local quiescent. ACK đúng client/profile/run/step đến trễ không advance.
+  Engine/backend restart giữ unresolved barrier, không tự replay/nhả khóa.
+- Extension 4.3.0/settlementVersion=1 xác nhận content idle + debugger input;
+  lỗi port không phải settled. Extension cũ bị chặn trước bước web integrated.
+  Process cancel đợi exit/tree cleanup, lọc secret env; parent chết bất thường
+  không tự coi descendants đã dừng.
+- `npm test`: backend 7/7, local-agent 13/13, engine 25/25; 3 browser fixture
+  tests và frontend build đạt. Có engine/Socket.IO thật, lost-response, expired
+  lease, wrong browser/viewer, membership/device revoke, reconnect, backend
+  restart, late ACK, symlink escape, monotonic renewal/expiry, Windows tree kill.
+- Gói standalone cài sạch runtime và chạy integrated policy/grant/run/revoke đạt.
+  Syntax checks + docs/provenance/env examples cập nhật; không sửa env thật/ref,
+  không restart installation người dùng hoặc deploy VPS.
+
+Hướng dẫn triển khai local: [WORKFLOW_GRANTS](../../../WORKFLOW_GRANTS.md).
+Giới hạn: chưa full extension worker E2E trên profile người dùng, download thật,
+Linux process-tree E2E, WAN/VPS/startup; mất proof có thể giữ unknown/barrier,
+chưa có recovery tự động. OpenProfile/GET jobs/report/retention tổng thể contract
+chưa implement. Các phần này thuộc WFI-04–08, không được đánh pass tại đây.

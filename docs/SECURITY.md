@@ -1,4 +1,21 @@
 # Quy tắc bảo mật
+
+WFI-03 integrated mode có local allowlist/hash/schema, grant pin device/user/
+browser/session/instance, fence bền vững, expiry monotonic và watchdog. API v1 và
+Bearer trên API dashboard không bypass grant trong mode này. HTTP polling cũ
+không khởi tạo; remote.json chỉ được kiểm tra tồn tại, không đọc secret.
+Takeover giữ barrier đến receipt quiescent; extension 4.3.0 xác minh content idle
+và debugger inputs, không coi port lỗi là dừng. Run chưa xác minh sau restart giữ
+unknown; không tự replay/nhả khóa. Source standalone/protocol 1 vẫn là legacy.
+Dashboard local/Remote Terminal/quyền OS là quản trị ngoài policy, không bảo đảm
+desktop hoặc mọi automation độc quyền. Xem [WORKFLOW_GRANTS](WORKFLOW_GRANTS.md).
+
+WFI-02 đưa engine/extension vào source local; HTTP polling control-server cũ bị
+ngắt tại bootstrap và không đọc credential remote cũ. Engine giữ dashboard/API
+v1 local, chưa có local policy/grant/watchdog v2; không quảng bá bản đóng gói là
+đã enforce dừng workflow accepted theo lease. Export chỉ đọc manifest file rõ
+ràng, không quét runtime; dependency dev/Chrome/media không vào gói runtime VPS.
+
 ## Đã có trong core
 - User login bằng mật khẩu scrypt salted; cookie HttpOnly + SameSite=Strict; bật Secure khi HTTPS.
 - Strict Origin cho mutation và browser socket; rate limit login/pairing/general API.

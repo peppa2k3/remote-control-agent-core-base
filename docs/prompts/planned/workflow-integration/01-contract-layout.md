@@ -1,5 +1,9 @@
 # WFI-01 — Contract và layout
 
+Trạng thái: **Completed — thiết kế WFI-01, 2026-11-11**. Giữ đường dẫn prompt
+hiện tại để các liên kết và lệnh gọi đã dùng tiếp tục hoạt động. Không đánh dấu
+WFI-02–08 hoặc runtime integration completed.
+
 Đọc README cùng thư mục. Bước này chốt tài liệu, chưa thay hành vi runtime.
 
 ## Đọc source
@@ -33,3 +37,22 @@ manifest/background/options và `prompts/processing/`.
 - Có inventory test/package/data migration và phạm vi không đồng bộ media/secret.
 - Có lộ trình attach trước managed; không cần sửa .env thật để hoàn thành ADR.
 - `npm test`, `npm run build` được chạy, ghi kết quả baseline và phần chưa xác minh.
+
+## Kết quả và bằng chứng
+
+- [ADR-001](../../../adr/001-workflow-integration.md): layout/package ownership,
+  license/provenance, dependency/lockfile, compatibility và migration/rollback.
+- [Contract integrated v2](../../../WORKFLOW_INTEGRATION_CONTRACT.md): schema,
+  quyền, grant expiry/fencing, local policy, job/report/retention và failure matrix;
+  API v2 đều được đánh dấu chưa implement.
+- [Inventory import/test](../../../WORKFLOW_IMPORT_INVENTORY.md): phạm vi source,
+  port test an toàn, CI/package và checklist WFI-01.
+- [Manifest SHA-256](../../../workflow-integration-source.json): 29 file source
+  chọn lọc từ snapshot local; không dùng commit core như upstream commit ref.
+- `npm test` exit 0: backend 5/5, local-agent 13/13, Windows PTY Node v24.16.0.
+- `npm run build` exit 0: frontend Vite build.
+- Không sửa runtime, env example hoặc .env thật; chưa copy engine/extension,
+  chạy suite ref/Chrome thật, thử MongoDB/video, startup task hoặc deploy VPS.
+
+Bước kế tiếp: WFI-02 theo ADR này; giữ giới hạn v1 cho đến khi WFI-03 enforce
+grant. Không gọi bộ tích hợp production hoàn chỉnh từ kết quả tài liệu WFI-01.

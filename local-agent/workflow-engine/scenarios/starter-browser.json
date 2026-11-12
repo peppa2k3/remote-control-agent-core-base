@@ -1,0 +1,4 @@
+{
+  "name": "Browser sample (requires extension)",
+  "steps": [{ "action": "openUrl", "url": "https://example.com/" }]
+}

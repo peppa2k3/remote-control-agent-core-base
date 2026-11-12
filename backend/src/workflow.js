@@ -1,10 +1,13 @@
+import {createWorkflowGrantRelay} from './workflow-grants.js';
 const operations = Object.freeze({profiles: [], scenarios: [], describe: ['scenario'], runs: ['profile'], status: ['runId'], stop: ['runId'], run: ['scenario', 'profile', 'variables', 'timeoutMs']});
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
 function fail(status, message) { throw Object.assign(new Error(message), {status}); }
 
 export function createWorkflowRelay({agents, db, authenticate, broadcast}) {
+  const v2=createWorkflowGrantRelay({agents,db,authenticate,broadcast});
   const capabilities = new Map();
   function bindAgent(socket, deviceId) {
+    v2.bindAgent(socket,deviceId);
     capabilities.delete(deviceId);
     socket.on('agent:workflow-capabilities', (payload, ack) => {
       if (agents.get(deviceId)?.socket !== socket) return;
@@ -17,6 +20,7 @@ export function createWorkflowRelay({agents, db, authenticate, broadcast}) {
     socket.on('disconnect', () => { if (!agents.has(deviceId) || agents.get(deviceId)?.socket === socket) capabilities.delete(deviceId); });
   }
   function bindBrowser(socket, userId) {
+    v2.bindBrowser(socket,userId);
     let count = 0, started = Date.now(), pending = 0;
     function authorized(deviceId, sessionId, expectedAgent) {
       if (!socket.connected || authenticate(socket.request) !== userId) fail(401, 'Phiên đăng nhập hết hạn');
@@ -28,6 +32,7 @@ export function createWorkflowRelay({agents, db, authenticate, broadcast}) {
     }
     socket.on('workflow:request', async (payload, ack) => {
       if (typeof ack !== 'function') return;
+      if (v2.handles(payload?.deviceId)) return v2.request(socket,userId,payload,ack);
       let reserved = false;
       try {
         if (Date.now() - started > 10000) { started = Date.now(); count = 0; }
@@ -53,5 +58,5 @@ export function createWorkflowRelay({agents, db, authenticate, broadcast}) {
       } finally { if (reserved) pending--; }
     });
   }
-  return {bindAgent, bindBrowser, supported(deviceId) { return capabilities.get(deviceId)?.configured === true; }};
+  return {bindAgent, bindBrowser,blocked:v2.blocked,revoke:v2.revoke,renew:v2.renew,tick:v2.tick,close:v2.close,supported(deviceId) { return v2.handles(deviceId)?v2.supported(deviceId):capabilities.get(deviceId)?.configured === true; }};
 }

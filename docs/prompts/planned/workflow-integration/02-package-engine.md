@@ -1,5 +1,9 @@
 # WFI-02 — Đóng gói engine và extension vào local-agent
 
+Trạng thái: **Completed — nhập source/package và kiểm tra local, 2026-11-11**.
+Giữ đường dẫn prompt để các liên kết đã dùng tiếp tục hoạt động. WFI-03–08
+chưa completed; không tuyên bố đã enforce grant v2 hoặc Chrome E2E.
+
 Đọc README chung và ADR WFI-01; chưa làm supervisor hoặc jobs.
 
 ## Thực hiện
@@ -27,3 +31,27 @@
   fallback/migration dữ liệu cũ đã cam kết, không tự chạy migration.
 - Test engine và core chạy được; build pass, extension ZIP không chứa secrets.
 - Chưa bật remote path cũ trong installation tích hợp, chưa chạy profile thật.
+
+## Kết quả
+
+- `local-agent/workflow-engine/`: CommonJS workspace, MongoDB 7.7.0 runtime,
+  Playwright 1.64.0 dev, API v1/CLI/daemon/dashboard/history/media guard giữ nguyên
+  engine; chỉ fixture/sample public. PROVENANCE ghi 58 file nguồn và adaptations.
+- `local-agent/chrome-reels-extension/`: runtime MV3 4.2.2 và ZIP 5 file.
+- Bootstrap engine không instantiate HTTP remote client, không đọc remote.json;
+  route mutation cũ trả 410 sau auth dashboard. Không tự khởi động engine/Chrome
+  hoặc thực hiện migration/startup task trên installation người dùng.
+- Root npm scripts/lock, Docker workspace manifests và context exclusions đã nối.
+  Dùng tên workspace chính xác để `npm run agent` không chạy cả nested engine.
+- Standalone exporter dùng allowlist 50 files và lock runtime trích từ root;
+  fresh `npm ci --omit=dev` và chạy workflow thật tại temp độc lập đạt.
+- Node suites: core backend 5, local-agent 13, engine 17; 2 browser fixture tests
+  content/media bằng Chrome profile test riêng. Migration/ZIP fixture Windows đạt.
+- Frontend build, JavaScript/PowerShell syntax và source/package checks đạt.
+- `npm ci` tại checkout gặp EPERM file Rolldown đang được giữ; dependency đã
+  khôi phục bằng npm install, và npm ci với cùng manifests/lock ở temp sạch đạt.
+- Docker image chưa build vì daemon không chạy; extension execution E2E,
+  MongoDB thật/video, WAN/VPS và startup thật chưa kiểm tra, thuộc các gate sau.
+
+Hướng dẫn chạy: [README engine](../../../../local-agent/workflow-engine/README.md).
+Ghi nhận kiểm chứng: [VALIDATION](../../../VALIDATION.md).

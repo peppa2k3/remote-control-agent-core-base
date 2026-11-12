@@ -1,5 +1,41 @@
 # Kết nối workflow engine trên máy local
 
+## Integrated mode WFI-03
+
+Engine 0.2.0 + runner WORKFLOW_AGENT_PROTOCOL=2 hỗ trợ policy/grant theo active
+lease. Xem [cấu hình và phạm vi](WORKFLOW_GRANTS.md). Env examples mới opt-in;
+không sửa env/installation đang chạy tự động. Protocol 1/standalone dưới đây vẫn
+giữ behavior cũ. Extension integrated cần 4.3.0, reload và refresh trang cũ.
+
+Revoke/expiry dừng run remote thuộc grant, chặn bước mới và đợi quiescence trước
+takeover; HTTP pending và run đã accepted đều được xử lý, kể cả mất response POST.
+Run dashboard local không thuộc grant web. Các mô tả v1 “accepted run có thể tiếp
+tục” trong phần lịch sử bên dưới chỉ áp dụng standalone/protocol 1.
+
+## Engine đi kèm source chính (WFI-02)
+
+Không cần copy engine từ `ref/`. Root `npm ci` cài workspace
+`@rca/workflow-engine`; MongoDB driver runtime pin 7.7.0, Playwright chỉ dev.
+Tự tạo `local-agent/workflow-engine/.env` từ example, cấu hình API token local,
+rồi chạy `npm run workflow:engine` ở root. Lệnh này chạy daemon riêng, chưa tự
+được Local Runner supervise. `npm run agent` chỉ chạy `@rca/local-agent`.
+
+Trong cấu hình runner dùng `WORKFLOW_AGENT_ENV_FILE=./workflow-engine/.env`,
+resolve từ `local-agent/`. Giữ đường dẫn env engine ngoài repo nếu đang attach
+installation cũ; không tự migrate hoặc đổi credential. Extension cài riêng từ
+`local-agent/chrome-reels-extension/`, giữ port 34719; chưa tự mở/cài Chrome.
+
+`npm run package:workflow -- --output THU_MUC_MOI` xuất engine với lock runtime
+độc lập, chạy `npm ci --omit=dev` tại máy đích; `npm run package:extension` tạo ZIP
+5 file runtime. Xem [README engine](../local-agent/workflow-engine/README.md).
+Không chép env/data/tools/profile/credential vào artifact. HTTP control-server
+polling cũ bị tắt trong bootstrap, kể cả khi data có remote.json cũ; không đọc
+credential đó. Trang `/remote` chỉ giải thích kết nối core.
+
+Phần WFI-02 và CLI dưới đây mô tả API/bridge v1 trong standalone/protocol 1;
+accepted run có thể tiếp tục khi mất lease. Integrated v2 theo mục WFI-03 ở trên;
+supervisor và jobs bền vững toàn tuyến còn planned.
+
 Panel **Kịch bản tự động** gọi API của Local Workflow Agent trên cùng máy với
 terminal agent. Luồng: browser → Socket.IO VPS → terminal agent → HTTP loopback
 `127.0.0.1:34719/api/v1`. Không mở port mới tới máy local.

@@ -4,6 +4,7 @@ COPY package*.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
 COPY local-agent/package.json local-agent/package.json
+COPY local-agent/workflow-engine/package.json local-agent/workflow-engine/package.json
 RUN npm ci --workspace=@rca/frontend --include-workspace-root=false
 COPY frontend frontend
 RUN npm run build --workspace=@rca/frontend
@@ -14,6 +15,7 @@ COPY package*.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
 COPY local-agent/package.json local-agent/package.json
+COPY local-agent/workflow-engine/package.json local-agent/workflow-engine/package.json
 RUN npm ci --omit=dev --workspace=@rca/backend --include-workspace-root=false && mkdir /data && chown node:node /data
 COPY --chown=node:node backend/src backend/src
 COPY --from=build --chown=node:node /app/frontend/dist frontend/dist

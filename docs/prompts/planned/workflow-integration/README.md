@@ -1,6 +1,9 @@
 # Bộ prompt WFI — tích hợp workflow
 
-Trạng thái toàn bộ prompt: **Planned**. Phân tích gốc:
+Trạng thái: **WFI-01 Completed (thiết kế); WFI-02 Completed (package/source);
+WFI-03 Completed (policy/grant); WFI-04–08 Planned**. Giữ nguyên đường dẫn prompt
+để tương thích liên kết. Engine 0.2.0/extension 4.3.0 có grant subset;
+supervisor/openProfile/durable jobs toàn tuyến chưa triển khai. Phân tích gốc:
 [WORKFLOW_INTEGRATION_PLAN](../../../WORKFLOW_INTEGRATION_PLAN.md).
 
 Mỗi lần gửi AI:

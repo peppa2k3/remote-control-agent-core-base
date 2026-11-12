@@ -66,3 +66,47 @@ Runtime kiểm tra: Linux, Node v24.19.0, npm 11.9.0.
 6. Owner force takeover: browser cũ bị revoke, ACK/renew session cũ bị chặn; owner qua handshake mới.
 7. Logout/revoke member/device/offline/restart VPS đều hủy lease; reconnect nhận snapshot mới, không revive session cũ.
 8. Test riêng MeshCentral install/reconnect/reboot; FE hiện not_integrated cho Mesh đến Step 003.
+# WFI-02 — package/source, 2026-11-11
+
+- Root `npm test`: backend 5/5, local-agent 13/13, engine 17/17; engine tests dùng
+  temp env/data/scenarios/profile, bao gồm auth Host/Origin/token, run/stop/history
+  sau restart, idempotency v1, core adapter thật và legacy HTTP disabled.
+- Windows ZIP test: đúng 5 runtime entries. Migration fixture: port guard,
+  collision trước move và giữ machine identity. Không chạy migration người dùng.
+- `npm run test:browser -w @rca/workflow-engine`: 2/2 content/media UI tests bằng
+  Chrome headless contexts riêng; MongoDB memory fixture, không website thật.
+- `npm run build`: frontend build exit 0. `node --check`: 45 file JS mới/import;
+  PowerShell parser: scripts/extension/file-picker syntax đạt.
+- Fresh workspace manifests + root lock trong temp: `npm ci` exit 0 (133 packages).
+  Standalone exporter trong temp + `npm ci --omit=dev --ignore-scripts`: exit 0
+  (12 runtime packages), chạy engine độc lập và workflow wait đến succeeded đạt.
+  Không dùng ref/node_modules checkout để chạy artifact standalone.
+- Checkout `npm ci` từng lỗi EPERM ở native Rolldown đang được giữ. `npm install
+  --ignore-scripts` khôi phục exit 0 (có cleanup warning file bị giữ); test/build
+  sau đó đạt. Không kill process người dùng hoặc xóa cưỡng bức native binding.
+- Docker daemon không chạy nên chưa build image; Dockerfile chỉ thêm workspace
+  manifest, final image vẫn backend/frontend. Chưa chạy extension execution E2E,
+  real MongoDB/video, startup service, WAN/VPS hoặc chứng minh grant v2 enforcement.
+# WFI-03 — policy/grants, 2026-11-12
+
+- `npm test`: backend 7/7, local-agent 13/13, engine 25/25, không skip trên Windows.
+  Backend/Socket.IO/engine thật: viewer/cùng user browser khác, allowlist/biến,
+  hidden defaults, retry key, lost POST response, lease renew/expiry trước sweep,
+  takeover barrier chờ web receipt, membership/device revoke, browser/agent
+  disconnect/reconnect, backend restart giữ fence/barrier nhưng bỏ lease.
+- Engine tests: token/Origin/v1 bypass, deny-by-default/hash/alias override,
+  symlink escape, strict JSON duplicate/prototype keys, grant replay/revoke-before-
+  grant/restart, late ACK sai client/không settled không nhả barrier, local run
+  độc lập, renewal qua deadline cũ và clock rollback bằng fake monotonic unit test.
+- Process thật: abort Node child và Windows parent+grandchild, chờ taskkill/close;
+  secret env không truyền xuống child. Parent fail bất thường giữ cleanup unknown.
+- `npm run test:browser -w @rca/workflow-engine`: 3/3 bằng Chrome test contexts,
+  gồm content script thật báo busy cho đến khi cancellation hoàn tất. Worker
+  settlement transport/input proof được test VM; chưa full worker/CDP/engine E2E.
+- `npm run build`: exit 0. `node --check`: 59 files source/test liên quan đạt.
+- Standalone 0.2.0 export + fresh runtime `npm ci --omit=dev --ignore-scripts`
+  exit 0; integrated auth/policy/grant/run/confirmed revoke thực đạt ở temp độc lập.
+- Chưa deploy/restart installation thật, real MongoDB/download/FFmpeg, VPS/WAN,
+  full extension worker/profile người dùng, Linux tree E2E hoặc startup. Bản này
+  giữ unknown/barrier khi thiếu proof, không tự recovery hoặc replay. Không có
+  openProfile/GET jobs/report seq/queue/retention 30/90 ngày toàn tuyến.
