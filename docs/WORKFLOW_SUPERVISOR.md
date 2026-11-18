@@ -1,6 +1,6 @@
 # Supervisor và health local — WFI-04
 
-Engine đi kèm là **0.4.0**, protocol 2, `lifecycleVersion: 1`. Supervisor dùng lại
+Engine hiện tại là **0.5.0**, protocol 2, `lifecycleVersion: 1`. Supervisor dùng lại
 daemon entrypoint `index.js --daemon` của source tham chiếu, thêm ownership IPC,
 giới hạn restart và health có xác thực. Không cài Scheduled Task hay deploy VPS.
 
@@ -9,7 +9,8 @@ giới hạn restart và health có xác thực. Không cài Scheduled Task hay 
 Trong cấu hình **local-agent**, đặt `WORKFLOW_AGENT_PROTOCOL=2`,
 `WORKFLOW_SUPERVISOR_MODE=attach`, URL loopback và `WORKFLOW_AGENT_ENV_FILE`
 trỏ đến `.env` engine hiện có. Path tương đối tính từ thư mục `local-agent/`.
-Chỉ dùng integrated engine 0.2.x, 0.3.x hoặc 0.4.x đã có policy local hợp lệ.
+Supervisor chấp nhận integrated engine 0.2.x–0.5.x có policy hợp lệ; jobs/sync
+WFI-06–08 cần 0.5.x/jobsVersion=1. Không downgrade schema 2 để dùng engine cũ.
 Standalone/v1 không đáp ứng grant v2; mode legacy protocol 1 vẫn là lựa chọn riêng.
 
 Token phải nằm trong engine env được chọn; nếu có override từ shell/local-agent

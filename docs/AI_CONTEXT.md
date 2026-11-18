@@ -46,3 +46,11 @@ WorkflowPanel thống nhất health/lease/profile/catalog/run/history; biến th
 policy schema. sessionStorage chỉ giữ requestId/hash/jobId, lookup receipt theo
 user/device trước retry; scope đổi hủy UI requests/timers, ACK cũ không ghi state.
 Xem [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md). WFI-08 chưa nghiệm thu target thật.
+
+## WFI-08 — phần local 2026-11-18
+
+`npm run test:workflow:e2e` chạy backend/runner/attach-engine/extension thật với
+temp data/profile/website. Runbook [WORKFLOW_OPERATIONS](WORKFLOW_OPERATIONS.md),
+evidence/failure matrix [VALIDATION](VALIDATION.md). WFI-08 vẫn planned: chưa
+VPS/WAN, Windows interactive/startup/máy sạch/restore target; Docker daemon blocked.
+Không dùng fixture pass để tuyên bố production hoặc desktop sẵn sàng.

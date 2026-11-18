@@ -9,6 +9,12 @@ Workflow này lấy quy trình trong `ref/` và thay các giả định riêng c
 
 Chưa có deploy tự động nào được chạy trên VPS thật. Hãy chuẩn bị các mục dưới đây trước khi push vào `main` hoặc bấm `Run workflow` trên nhánh `main`.
 
+WFI-08: trước rollout phải có backup SQLite consistent và compatibility check
+schema/keys/engine version; pipeline hiện tại không tự backup hoặc rollback DB.
+Image rollback giữ volume nên chỉ dùng previous image tương thích. Gate và
+restore drill: [WORKFLOW_OPERATIONS](WORKFLOW_OPERATIONS.md). Local fixture pass
+không xác nhận VPS/WAN/desktop thật; xem [VALIDATION](VALIDATION.md).
+
 ## 1. Chuẩn bị VPS
 
 VPS cần Linux, Docker Engine, Docker Compose plugin có hỗ trợ `up --wait`, `curl`, Traefik đang chạy, DNS của `APP_DOMAIN` trỏ đến VPS, HTTPS hợp lệ và network Traefik mà app sẽ dùng. Deploy user cần đăng nhập SSH bằng public key và quyền chạy Docker. Quyền Docker tương đương quyền quản trị VPS; chỉ cấp cho tài khoản deploy đáng tin cậy.

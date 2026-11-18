@@ -1,5 +1,11 @@
 # WFI-08 — Nghiệm thu và vận hành
 
+Trạng thái: **Planned — phần tự động local và runbook đã triển khai 2026-11-18**.
+E2E toàn tuyến: `npm run test:workflow:e2e`. Kết quả, phạm vi fixture và gate
+chưa đạt: [VALIDATION](../../../VALIDATION.md). Cài/nâng cấp/backup/rollback:
+[WORKFLOW_OPERATIONS](../../../WORKFLOW_OPERATIONS.md).
+Chưa nghiệm thu VPS/WAN và Windows interactive/máy sạch; không đánh dấu completed.
+
 Đọc README chung; phụ thuộc tất cả WFI trước. Coding và test local không tự cho
 phép deploy VPS, restart runner thật hoặc cài Windows Scheduled Task.
 

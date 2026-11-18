@@ -2,7 +2,11 @@
 
 ## Integrated mode WFI-03
 
-Engine 0.4.0 + runner WORKFLOW_AGENT_PROTOCOL=2 hỗ trợ policy/grant theo active
+Runbook cài/attach/managed/startup/backup/rollback và gate VPS:
+[WORKFLOW_OPERATIONS](WORKFLOW_OPERATIONS.md). WFI-08 vẫn planned cho tới nghiệm
+thu target; fixture tự động không chứng minh desktop/VPS thật sẵn sàng.
+
+Engine 0.5.0 + runner WORKFLOW_AGENT_PROTOCOL=2 hỗ trợ policy/grant theo active
 lease. Xem [cấu hình và phạm vi](WORKFLOW_GRANTS.md). Env examples mới opt-in;
 không sửa env/installation đang chạy tự động. Protocol 1/standalone dưới đây vẫn
 giữ behavior cũ. Extension integrated cần 4.3.0, reload và refresh trang cũ.

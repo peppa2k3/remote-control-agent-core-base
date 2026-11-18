@@ -169,3 +169,8 @@ không cần lease. Key retained trả expired receipt khi metadata đã purge.
 GET engine `/api/v2/scenarios/:id` bổ sung `variableSchema` và `profiles` từ policy;
 chỉ publicDefaults có values. Auth/grant và quyền server giữ nguyên.
 Chi tiết UI/retry/cancellation: [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md).
+
+WFI-08 không thêm endpoint hoặc quyền bypass để nghiệm thu. `/api/health` chỉ
+chứng minh backend process; không xác nhận desktop/engine/extension/website.
+Runbook và compatibility/restore/rollback gates:
+[WORKFLOW_OPERATIONS](WORKFLOW_OPERATIONS.md). Evidence: [VALIDATION](VALIDATION.md).

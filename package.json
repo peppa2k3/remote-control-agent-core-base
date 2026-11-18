@@ -20,6 +20,7 @@
     "test": "npm test -w @rca/backend && npm test -w @rca/local-agent && npm test -w @rca/workflow-engine",
     "workflow:engine": "npm run start:daemon -w @rca/workflow-engine",
     "test:workflow": "npm test -w @rca/workflow-engine",
+    "test:workflow:e2e": "node --test --test-concurrency=1 backend/test/e2e/*.test.js",
     "package:workflow": "npm run package:standalone -w @rca/workflow-engine",
     "package:extension": "powershell -NoProfile -ExecutionPolicy Bypass -File local-agent/chrome-reels-extension/package.ps1"
   }

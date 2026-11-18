@@ -152,3 +152,16 @@ Chromium desktop 1280px/mobile 390px kiểm tra validation, run/stop, missing
 extension, viewer/wrong browser, revoke/stale ACK, reload/history/unknown và
 keyboard/overflow. Xem [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md),
 [VALIDATION](VALIDATION.md). WFI-08 còn planned. Không deploy hoặc sửa env thật.
+
+## 2026-11-18 — WFI-08, phần tự động local
+
+Đã thêm harness `npm run test:workflow:e2e`: SQLite/temp backend, console pairing
+qua Local Runner process thật, local ACK nonce, engine attach process, extension
+MV3 thật/profile Chromium tạm và HTTPS website fixture. Chứng minh từng action
+qua DOM + settled receipts, stop không chạy bước tiếp, restart runner không replay,
+history, profile contention, foreign browser và redaction/loopback listener.
+Runbook cài/attach/managed/startup/upgrade/backup/restore/rollback và gate pipeline:
+[WORKFLOW_OPERATIONS](WORKFLOW_OPERATIONS.md); failure matrix [VALIDATION](VALIDATION.md).
+**WFI-08 giữ planned**: Docker daemon không hoạt động; chưa nghiệm thu VPS/WAN,
+Windows interactive/launcher/startup/máy sạch hoặc restore thật. Không deploy,
+restart installation, cài task hoặc sửa env/credential/profile người dùng.

@@ -33,6 +33,10 @@ docker compose -f compose.yml -f seed.compose.yml run --rm app node src/seed.js
 Xóa seed.env và seed.compose.yml sau khi seed; service đang chạy không bị restart hoặc lưu seed env. Tạo user khác bằng cách này khi cần. Không có self registration.
 
 ## Vận hành
+
+Workflow tích hợp cần compatibility/backup/restore gates trước rollout:
+[WORKFLOW_OPERATIONS](WORKFLOW_OPERATIONS.md). Pipeline image rollback giữ DB,
+không rollback schema hoặc bảo đảm giữ dedup guards nếu dùng image quá cũ.
 - Single app replica. DB tại named volume app-data; không dùng `down -v` trừ khi cố ý xóa dữ liệu.
 - Backup SQLite consistent: stop app trước snapshot/copy volume hoặc dùng SQLite backup API; giữ permissions, kiểm tra restore trên môi trường thử.
 - MeshCentral backup gồm toàn bộ meshcentral-data (DB/khóa/chứng chỉ) và meshcentral-files. Không chỉ backup config.

@@ -4,6 +4,8 @@ Trạng thái: **WFI-01 Completed (thiết kế); WFI-02 Completed (package/sour
 WFI-03 Completed (policy/grant); WFI-04 Completed (supervisor/health);
 WFI-05 Completed (Chrome/extension); WFI-06 Completed (jobs/sync, kiểm thử local);
 WFI-07 Completed (frontend, fixture desktop/mobile); WFI-08 Planned**.
+WFI-08 đã có [runbook và E2E local](../../../WORKFLOW_OPERATIONS.md), giữ planned
+do chưa nghiệm thu target thật; xem [evidence](../../../VALIDATION.md).
 Giữ nguyên đường dẫn prompt để tương thích liên kết.
 Engine 0.4.0/extension 4.4.0 có grant, supervisor, openProfile/readiness;
 WFI-06 nâng engine lên 0.5.0 với [jobs/journal/report](../../../WORKFLOW_JOBS.md). Xem [Chrome/extension](../../../WORKFLOW_CHROME.md) và

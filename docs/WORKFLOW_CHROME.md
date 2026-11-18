@@ -1,6 +1,6 @@
 # Chrome profile và extension — WFI-05
 
-Engine **0.4.0**, extension **4.4.0**. Giữ logic profile cache, selector legacy,
+Engine hiện tại **0.5.0**, extension **4.4.0** (profile bridge từ 0.4.0). Giữ logic profile cache, selector legacy,
 file chooser, ACK/cancel và daemon từ source tham chiếu. WFI-05 thêm mở profile
 theo grant và handshake/readiness thực; không tự cài extension hoặc sửa Chrome
 Preferences/Secure Preferences. Không cần chạy control-server tham chiếu.

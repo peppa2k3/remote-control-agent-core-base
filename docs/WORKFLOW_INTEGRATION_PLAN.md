@@ -14,6 +14,8 @@ WFI-03 đã implement policy/grant subset. WFI-04 thêm supervisor/health,
 WFI-05 thêm Chrome/profile readiness với engine 0.4.0, extension 4.4.0;
 WFI-06 đã triển khai jobs/journal/report với engine 0.5.0; WFI-07 đã triển khai
 [frontend thống nhất](WORKFLOW_FRONTEND.md); WFI-08 còn planned.
+WFI-08 đã có [harness/runbook local](WORKFLOW_OPERATIONS.md), nhưng chưa đủ gate
+VPS/WAN/Windows interactive/máy sạch để chuyển completed; xem [evidence](VALIDATION.md).
 Xem [jobs/sync](WORKFLOW_JOBS.md), [Chrome/extension](WORKFLOW_CHROME.md),
 [supervisor thực tế](WORKFLOW_SUPERVISOR.md), [cấu hình grant](WORKFLOW_GRANTS.md) và
 [hướng dẫn engine](../local-agent/workflow-engine/README.md). Các bảng khảo sát

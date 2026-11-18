@@ -233,3 +233,60 @@ WFI-07–08 vẫn planned; hướng dẫn schema/protocol/retention/rollback t�
 WFI-07 hoàn tất source/fixture; VPS/WAN, desktop tương tác và website đăng nhập
 thật vẫn cần WFI-08. Hướng dẫn vận hành UI/API bổ sung tại
 [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md).
+
+## WFI-08 — evidence 2026-11-18, Windows 10.0.19045 / Node 24.16.0
+
+**WFI-08 vẫn Planned.** Bảng này chỉ ghi kết quả thực chạy, không dùng source
+existence để đánh dấu pass. Không có pass thủ công trên production trong phiên này.
+
+| Kiểm tra thực chạy | Kết quả | Phạm vi bằng chứng |
+| --- | --- | --- |
+| `npm test` | Exit 0, 66/66: backend 13, runner 20, engine 33 | Protocol, DB, real process crash/restart, ACL env, packaging fixtures |
+| `npm run build` | Exit 0 | Vite frontend production bundle |
+| `npm run test:browser -w @rca/workflow-engine` | Exit 0, 4/4 | Unpacked MV3/Options/real DOM/CDP, worker reconnect, content settlement, fixture content/media UI |
+| `node --test --test-concurrency=1 backend/test/browser/*.test.js` | Exit 0, 3/3 | Dashboard health, desktop/mobile, current browser authority, stale UI ACK/recovery |
+| `npm run test:workflow:e2e` | Exit 0, 1/1 sau sửa synchronization fixture | Backend SQLite temp → runner process → engine attach → MV3 thật → HTTPS fixture |
+| Git Bash `bash -n scripts/deploy.sh`, `bash -n scripts/test-deploy.sh` | Exit 0 | Syntax scripts hiện có |
+| Git Bash `bash scripts/test-deploy.sh` | Exit 0 | Compose layout/immutable release/HTTPS promotion/rollback bằng command stubs, không gọi VPS |
+| `docker info --format '{{.ServerVersion}}'` | Exit 1, **blocked** | Pipe dockerDesktopLinuxEngine không tồn tại; không build/inspect image hoặc Compose runtime thật |
+
+Harness mới ở `backend/test/e2e/workflow-stack.test.js`. Lượt trực tiếp Node đầu
+đạt 1/1; lượt chạy alias đầu phát hiện giả định test không đúng: sau stop, grant
+scoped status có thể trả 503 khi browser còn settling/health degraded. Harness
+đã chuyển sang chờ readonly VPS receipt terminal + quiescent, đúng contract;
+không retry mutation, không bỏ kiểm tra settled receipt/DOM hoặc nới quyền.
+Lượt alias tiếp phát hiện fixture xin lease trước khi snapshot offline/new runner
+và old-grant drain hoàn tất. Đã chờ offline thực rồi health mới + barrier clear
+trước lease mới, không bypass nonce/grant/barrier. Lượt alias cuối **exit 0, 1/1**.
+Chạy lại alias sau sửa synchronization cũng **exit 0, 1/1** (hai lượt liên tiếp).
+Không tính các lần chạy lặp thành thêm test hoặc coi fixture HTTPS là WAN/TLS production.
+
+### Failure matrix và giới hạn evidence
+
+| Tình huống | Evidence local tự động | Còn phải nghiệm thu |
+| --- | --- | --- |
+| Pairing một lần, local consent/nonce ACK | Core tests + stack harness dùng console YES, runner thật gửi ACK; code dùng lại bị 401 | Pairing thủ công user thật trên máy sạch |
+| Expired pairing/nonce/session, viewer/foreign browser | `core.test.js`, adapter/grants tests; dashboard fixture + stack foreign browser bị chặn | Browser/WAN đa thiết bị thật |
+| Lease/grant expiry, policy/membership revoke, owner takeover | `workflow-grants.test.js`, `policy-grants.test.js`: expiry/watchdog, barrier, không cấp grant trước proof | Toàn ma trận khi Chrome GUI thật đang thao tác |
+| Device revoke | Core HTTP/realtime test thu hồi máy/quyền/lease | Device revoke giữa action extension thật chưa E2E toàn tuyến |
+| Browser disconnect/VPS restart | Grants/jobs/crash tests: lease mất, dispatched thành unknown, không replay | Mất WAN/proxy/TLS thật |
+| Runner mất/restart | Stack harness kill/restart runner sau job thành công, attach engine còn sống, retry cùng key không thêm action | Runner crash giữa GUI input trên target |
+| Engine crash/restart/managed ownership | Supervisor tests và jobs test kill engine thật; unknown giữ barrier, child riêng, không kill chủ port | Managed launcher GUI và child ngoài process trên target |
+| Crash sau journal, HTTP response lost, committed report ACK lost | Jobs-sync/journal/engine jobs tests, temp SQLite/process thật; cùng key không tạo execution mới | Power loss/storage failure thật |
+| Duplicate/out-of-order/stale reports và ACK | Workflow-jobs/policy/grants/extension settlement tests + stale UI ACK fixture | Transport WAN thật |
+| Profile/foreground contention, stop và bước sau hủy | Stack MV3 thật trả BUSY; pending waitFor có settled cancellation, click kế tiếp không xảy ra; profile-bridge tests | Hai profile GUI thật, khóa desktop/RDP |
+| Data boundary/logs/legacy bypass | Stack kiểm tra logs/history không token/credential/pair code/absolute temp path/typed content; legacy control không 200; grants tests lọc metadata | Audit installation/image production |
+| ACL Windows và local listener | Supervisor fixture kiểm tra allow/deny ACL token; stack Get-NetTCPConnection xác nhận engine bind 127.0.0.1 thật | ACL toàn runtime/credentials trên máy đích; firewall/proxy target |
+| Artifact/package boundary | Engine standalone export allowlist/runtime-only lock, secret/traversal rejection; extension ZIP đúng 5 files, tất cả tạo temp | Image thật blocked Docker daemon; release trên máy sạch chưa chạy |
+| Media/file picker | Fixture media UI/unit logic; file-picker dùng fake process, không phải dialog Windows thật | Picker/media GUI thật chưa chạy, không post/upload nội dung thật |
+| Backup/restore/rollback | Migration upgrade/rollback fixtures; deploy rollback command stubs | Full restore drill DB/journal/history và image/schema trên target chưa chạy |
+
+### Gate production còn mở
+
+VPS/WAN/HTTPS/Socket.IO proxy, Docker build+inspect, Windows interactive/Chrome
+launch bằng production launcher, startup task/reboot/lock/unlock/RDP, ACL toàn
+runtime, máy sạch, full backup/restore và rollback schema/package trên target:
+**chưa chạy** (Docker riêng là blocked). Runbook đã viết nhưng chưa chứng nhận
+thực hiện thành công trên máy sạch. Không tự deploy/restart/cài task hoặc dùng
+profile đã đăng nhập. Không có cam kết exactly-once cho website bên ngoài.
+Quy trình và mẫu evidence operator: [WORKFLOW_OPERATIONS](WORKFLOW_OPERATIONS.md).
