@@ -11,7 +11,7 @@ const {parseStrictJson}=require('../src/http/strict-json');
 const {temporary,removeTemporary,startEngine}=require('./helpers/engine');
 
 function policyFor(scenarios,names=['wait']){
-  return {schemaVersion:1,revision:1,profiles:[{id:'Default',allowOpen:false}],urlOrigins:['https://example.test'],fileRoots:[],scenarios:names.map(id=>({id,sha256:createHash('sha256').update(fs.readFileSync(path.join(scenarios,id+'.json'))).digest('hex'),profiles:['Default'],variables:{delay:{type:'integer',minimum:1,maximum:10000}},publicDefaults:['delay']}))};
+  return {schemaVersion:1,revision:1,profiles:[{id:'Default',allowOpen:false}],urlOrigins:['https://example.test'],fileRoots:[],scenarios:names.map(id=>({id,sha256:createHash('sha256').update(fs.readFileSync(path.join(scenarios,id+'.json'))).digest('hex'),profiles:['Default'],variables:{delay:{type:'integer',minimum:1,maximum:10000},privateChoice:{type:'string',maxLength:50,enum:['PRIVATE_SCHEMA_ENUM_MUST_NOT_LEAK']}},publicDefaults:['delay']}))};
 }
 test('policy is deny by default, pins source, validates types and blocks alias URL/path overrides',t=>{
   const directory=temporary('workflow-policy-');t.after(()=>removeTemporary(directory));
@@ -50,6 +50,7 @@ test('integrated HTTP blocks v1/native dashboard bypass; watchdog stops remote w
   const headers={'X-Workflow-Grant':grant.grantId,'X-Workflow-Fence':'1','X-Workflow-Engine-Instance':health.engineInstanceId};
   assert.deepEqual(await call('/api/v2/scenarios',{headers}),{names:['wait']});
   assert.deepEqual((await call('/api/v2/scenarios/wait',{headers})).variables,{delay:20});
+  const description=await call('/api/v2/scenarios/wait',{headers});assert.deepEqual(description.variableSchema,{delay:{type:'integer',minimum:1,maximum:10000},privateChoice:{type:'string',maxLength:50}});assert(!JSON.stringify(description).includes('PRIVATE_SCHEMA_ENUM_MUST_NOT_LEAK'));assert.deepEqual(description.profiles,['Default']);assert(!JSON.stringify(description).includes('sha256'));
   const run=await call('/api/v2/runs',{method:'POST',headers:{...headers,'Idempotency-Key':'watchdog'},body:{jobId:randomUUID(),profile:'Default',scenario:'wait',variables:{delay:10000}},status:202});
   // Local dashboard is an explicit trusted local-admin path, with a different run ID.
   const html=await(await fetch(engine.base)).text(),session=/name="local-agent-session" content="([a-f0-9]+)"/.exec(html)[1];

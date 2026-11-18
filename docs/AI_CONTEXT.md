@@ -38,4 +38,11 @@ SQLite và report seq/ACK về VPS. Retry giữ requestId/fingerprint/grant gố
 restart chỉ reconcile, không phục hồi lease hoặc replay. Unknown giữ barrier.
 History metadata kiểm tra membership hiện tại, retention metadata 30 ngày/key
 90 ngày. Xem [WORKFLOW_JOBS](WORKFLOW_JOBS.md) và [VALIDATION](VALIDATION.md).
-WFI-07–08 còn planned; chưa nghiệm thu VPS/WAN hoặc desktop/website thật.
+WFI-08 còn planned; chưa nghiệm thu VPS/WAN hoặc desktop/website thật.
+
+## WFI-07 — 2026-11-18
+
+WorkflowPanel thống nhất health/lease/profile/catalog/run/history; biến theo
+policy schema. sessionStorage chỉ giữ requestId/hash/jobId, lookup receipt theo
+user/device trước retry; scope đổi hủy UI requests/timers, ACK cũ không ghi state.
+Xem [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md). WFI-08 chưa nghiệm thu target thật.

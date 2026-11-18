@@ -76,7 +76,7 @@ function DeviceCard({device,user,connected,mine,event,attempt,setMessage,termina
   <p>Local Runner: {device.runnerStatus} · MeshCentral: chưa tích hợp</p>
   <p>{device.session?`Phiên ${device.session.state} · ${device.session.userId===user.id?'tài khoản của bạn':'người quản lý khác'}`:'Chưa có phiên điều khiển'}</p>
   <StatusTable device={device}/>
-  <WorkflowPanel device={device} sessionId={mine.current.get(device.id)} connected={connected} request={workflowRequest}/>
+  <WorkflowPanel userId={user.id} device={device} sessionId={mine.current.get(device.id)} connected={connected} request={workflowRequest}/>
   <RemoteTerminalLauncher device={device} sessionId={mine.current.get(device.id)} connected={connected} canControl={device.role!=='viewer'} event={event} terminalSessions={terminalSessions} setTerminalSessions={setTerminalSessions} targets={terminalTargets}/>
   <small>{device.id}</small>
   <div className="actions">
@@ -94,7 +94,17 @@ function DeviceCard({device,user,connected,mine,event,attempt,setMessage,termina
 function App(){
  const [user,setUser]=useState(null),[devices,setDevices]=useState([]),[error,setError]=useState(''),[connected,setConnected]=useState(false),[pair,setPair]=useState(''),[message,setMessage]=useState(''),[terminalSessions,setTerminalSessions]=useState({});
  const socket=useRef(null),mine=useRef(new Map());
- const workflowRequest=useCallback(payload=>new Promise((resolve,reject)=>{if(!socket.current?.connected){reject(Error('Chưa kết nối VPS'));return;}socket.current.timeout(15000).emit('workflow:request',payload,(error,result)=>{if(error)reject(Error('Hết thời gian chờ; kiểm tra lượt gần đây trước khi chạy lại'));else if(!result?.ok)reject(Error(result?.error||'Workflow request thất bại'));else resolve(result.data);});}),[]);
+ const workflowRequest=useCallback((payload,{signal}={})=>new Promise((resolve,reject)=>{
+  const abort=()=>finish(Error('REQUEST_CANCELLED'));let done=false;
+  const finish=(error,data)=>{if(done)return;done=true;signal?.removeEventListener('abort',abort);error?reject(error):resolve(data)};
+  if(signal?.aborted)return abort();signal?.addEventListener('abort',abort,{once:true});
+  if(!socket.current?.connected)return finish(Error('VPS_DISCONNECTED'));
+  socket.current.timeout(15000).emit('workflow:request',payload,(error,result)=>{
+   if(error)finish(Object.assign(Error('RESPONSE_UNKNOWN'),{code:'RESPONSE_UNKNOWN'}));
+   else if(!result?.ok)finish(Object.assign(Error(result?.error||'WORKFLOW_REJECTED'),{code:result?.code}));
+   else finish(null,result.data);
+  });
+ }),[]);
  const terminalTargets=useRef(null);if(!terminalTargets.current){terminalTargets.current=new Map();terminalTargets.current.pending=new Map()}
  useEffect(()=>{api('/auth/me').then(setUser).catch(()=>{})},[]);
  useEffect(()=>{
@@ -123,7 +133,7 @@ function App(){
   <header><div><span className="eyebrow">REMOTE CONTROL AGENT · CORE 01</span><h1>Máy của bạn, kết nối từ xa.</h1><p>Quản lý thiết bị và phiên điều khiển qua VPS.</p></div><span className={'badge '+(connected?'on':'')}>{connected?'● VPS realtime đã kết nối':'○ Chưa kết nối VPS realtime'}</span></header>
   {error&&<div className="alert">{error}</div>}{message&&<p role="status">{message}</p>}
   {!user?<form className="panel" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);attempt(async()=>setUser(await api('/auth/login',Object.fromEntries(f))))}}><h2>Đăng nhập</h2><input name="email" type="email" placeholder="Email" required/><input name="password" type="password" placeholder="Mật khẩu" required/><button>Đăng nhập</button></form>:<>
-   <nav><strong>{user.name}</strong><button className="secondary" onClick={()=>attempt(async()=>{await api('/auth/logout',{});setUser(null);setDevices([])})}>Đăng xuất</button></nav>
+   <nav><strong>{user.name}</strong><button className="secondary" onClick={()=>attempt(async()=>{await api('/auth/logout',{});setUser(null);setDevices([]);for(const key of Object.keys(sessionStorage))if(key.startsWith('workflow-intent:'))sessionStorage.removeItem(key)})}>Đăng xuất</button></nav>
    <section className="panel"><h2>Ghép cặp máy nhà</h2><form className="row" onSubmit={e=>{e.preventDefault();const name=new FormData(e.currentTarget).get('name');attempt(async()=>{const p=await api('/pairing',{name});setPair(p.code)})}}><input name="name" placeholder="Tên máy, ví dụ PC ở nhà" required maxLength="120"/><button>Tạo mã ghép cặp</button></form>{pair&&<><p>Mã dùng một lần, hết hạn sau 5 phút. Điền vào PAIR_CODE trên máy nhà.</p><code className="pair">{pair}</code></>}</section>
    <section className="grid">{devices.map(device=><DeviceCard key={device.id} device={device} user={user} connected={connected} mine={mine} event={event} attempt={attempt} setMessage={setMessage} terminalSessions={terminalSessions} setTerminalSessions={setTerminalSessions} terminalTargets={terminalTargets} workflowRequest={workflowRequest}/>)}</section>
    {!devices.length&&<p>{connected?'Chưa có thiết bị. Ghép cặp Local Runner để bắt đầu.':'Chưa kết nối VPS; trạng thái các máy hiện chưa xác định.'}</p>}

@@ -63,6 +63,7 @@ export function createApp({dbPath=process.env.DB_PATH||'./data/rca.sqlite',origi
  app.get('/api/auth/me',(req,res)=>res.json(db.one('SELECT id,email,name FROM users WHERE id=?',req.userId)));
  app.post('/api/auth/logout',(req,res)=>{db.run('DELETE FROM logins WHERE hash=?',hash(cookie(req)));for(const [id,u]of viewers)if(u===req.userId&&cookie(io.sockets.sockets.get(id)?.request||{headers:{}})===cookie(req))io.sockets.sockets.get(id)?.disconnect(true);res.clearCookie('rca',{path:'/'});res.json({ok:true})});
  app.get('/api/devices',(req,res)=>res.json(visible(req.userId)));
+ app.get('/api/devices/:id/workflow/requests/:requestId',(req,res)=>res.json(workflowRelay.jobs.lookup(req.params.id,req.userId,req.params.requestId)));
  app.get('/api/devices/:id/workflow/jobs',(req,res)=>{const d=req.params.id;res.json(workflowRelay.jobs.list(d,req.userId,{cursor:req.query.cursor||'',limit:req.query.limit===undefined?20:Number(req.query.limit)}));});
  app.get('/api/devices/:id/workflow/jobs/:jobId',(req,res)=>{db.role(req.params.id,req.userId);const j=workflowRelay.jobs.get(req.params.jobId);if(!j||j.deviceId!==req.params.id)fail(404,'Job not found');res.json({version:1,job:workflowRelay.jobs.project(j)});});
  app.post('/api/pairing',(req,res)=>res.status(201).json({code:db.pair(req.userId,validString(req.body.name)),expiresIn:300}));

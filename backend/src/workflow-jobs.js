@@ -49,7 +49,12 @@ export function createWorkflowJobs(db,{now=Date.now,recover=true}={}){
   });}
   function expire(){db.run("UPDATE workflow_jobs SET state='expired',quiescent=1,reasonCode='LEASE_EXPIRED',updatedAt=? WHERE state='queued' AND deadline<=?",now(),now());}
   function prune(){db.tx(()=>{db.run("DELETE FROM workflow_jobs WHERE quiescent=1 AND state IN ('succeeded','failed','cancelled','expired','rejected') AND updatedAt<?",now()-30*86400000);db.run('DELETE FROM workflow_job_keys WHERE expiresAt<? AND jobId NOT IN (SELECT jobId FROM workflow_jobs)',now());});}
-  return {get,project,accept,dispatch,uncertain,cancel,merge,expire,prune,list(deviceId,userId,{cursor='',limit=20}={}){
+  return {get,project,accept,dispatch,uncertain,cancel,merge,expire,prune,lookup(deviceId,userId,requestId){
+    db.role(deviceId,userId);
+    if(!/^[A-Za-z0-9_-]{1,128}$/.test(requestId))fail('INVALID_REQUEST',400);
+    const key=db.one('SELECT jobId FROM workflow_job_keys WHERE deviceId=? AND requestedBy=? AND requestId=?',deviceId,userId,requestId);
+    return {version:1,job:key?(get(key.jobId)?project(get(key.jobId)):{jobId:key.jobId,state:'expired',quiescent:true,reasonCode:'KEY_RETAINED'}):null};
+  },list(deviceId,userId,{cursor='',limit=20}={}){
     db.role(deviceId,userId);if(!Number.isInteger(limit)||limit<1||limit>50||cursor&&!/^[a-f0-9-]{36}$/.test(cursor))fail('INVALID_CURSOR',400);
     // Cursor is a device-scoped row identity, not a timestamp supplied by a browser.
     const after=cursor?get(cursor):null;if(cursor&&after?.deviceId!==deviceId)fail('INVALID_CURSOR',400);

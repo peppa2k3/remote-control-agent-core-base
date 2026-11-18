@@ -142,3 +142,13 @@ retention metadata 30 ngày/key 90 ngày. Xem [WORKFLOW_JOBS](WORKFLOW_JOBS.md)
 và [VALIDATION](VALIDATION.md). WFI-07–08 còn planned; chưa nghiệm thu VPS/WAN,
 desktop/website đăng nhập thật. Không thay env/credentials/profile hoặc installation
 người dùng; thư mục local-agent copy không thuộc thay đổi WFI-06.
+
+## 2026-11-18 — WFI-07 frontend
+
+Đã thống nhất WorkflowPanel: trạng thái kết nối riêng, schema biến theo policy,
+requestId/jobId recovery qua lookup riêng user/device, receipt không đồng nghĩa
+thành công, history phân trang, cancel UI và polling theo scope/lease. Fixture
+Chromium desktop 1280px/mobile 390px kiểm tra validation, run/stop, missing
+extension, viewer/wrong browser, revoke/stale ACK, reload/history/unknown và
+keyboard/overflow. Xem [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md),
+[VALIDATION](VALIDATION.md). WFI-08 còn planned. Không deploy hoặc sửa env thật.

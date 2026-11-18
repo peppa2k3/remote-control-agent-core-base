@@ -159,3 +159,13 @@ API mới đã implement:
 
 Body/response/schema, states, 30/90-day retention, migration và rollback:
 [WORKFLOW_JOBS](WORKFLOW_JOBS.md). Không có endpoint reset unknown hoặc auto replay.
+
+## WFI-07 — receipt lookup và biến có kiểu
+
+Đề xuất mới WFI-07, đã implement: GET
+`/api/devices/:id/workflow/requests/:requestId` trả `{version:1,job:metadata|null}`.
+Cookie + membership hiện tại; lookup chỉ request của user hiện tại trên device,
+không cần lease. Key retained trả expired receipt khi metadata đã purge.
+GET engine `/api/v2/scenarios/:id` bổ sung `variableSchema` và `profiles` từ policy;
+chỉ publicDefaults có values. Auth/grant và quyền server giữ nguyên.
+Chi tiết UI/retry/cancellation: [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md).

@@ -13,6 +13,9 @@ WFI-05 bổ sung [mở Chrome profile và readiness extension](docs/WORKFLOW_CHR
 engine 0.4.0, extension 4.4.0. Cài/enable extension riêng và chọn profile/port trong
 Options; Chrome đang chạy chưa đủ để coi bước web sẵn sàng.
 
+WFI-07 bổ sung [giao diện workflow thống nhất](docs/WORKFLOW_FRONTEND.md):
+biến theo policy, khôi phục receipt, lịch sử phân trang và hủy UI khi mất lease.
+
 Workflow bridge: panel **Kịch bản tự động** điều khiển scenario đã lưu trong
 Local Workflow Agent qua HTTP loopback và active lease hiện có. Xem
 [cấu hình workflow API và terminal CLI](docs/WORKFLOW.md).

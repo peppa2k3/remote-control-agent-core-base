@@ -208,3 +208,28 @@ unknown giữ barrier và cần kiểm tra local, không có force-clear tự đ
 deploy, restart installation người dùng hoặc thay env/credentials/profile thật.
 WFI-07–08 vẫn planned; hướng dẫn schema/protocol/retention/rollback tại
 [WORKFLOW_JOBS](WORKFLOW_JOBS.md).
+
+## WFI-07 — 2026-11-18, Windows / Node 24.16.0
+
+- `npm test`: exit 0, **66/66** (backend 13, Local Runner 20, engine 33).
+  Thêm assertions lookup request của chính user, current membership, schema
+  describe/public defaults; giữ các test server chặn giả mạo lease/viewer.
+  Sau khi giới hạn schema không gửi enum riêng tư, chạy lại policy/grants:
+  **7/7**, bao gồm assertion giá trị enum không public không xuất hiện trong response.
+- `npm run build`: exit 0. `node --test --test-concurrency=1
+  backend/test/browser/*.test.js`: exit 0, **3/3**.
+- Chromium fixture viewport desktop **1280×900** và mobile **390×844**: catalog,
+  schema/validation trước dispatch, missing extension → mở profile → readiness,
+  run/stop và terminal receipt. Viewer và browser khác không có quyền thao tác;
+  forged Socket.IO request bị backend từ chối, lookup không lộ key user khác.
+- Revoke khi đang chờ ACK, reload/lost response khôi phục run từ requestId,
+  ACK cũ không render; không thêm execution. Unknown/history không tự retry.
+  Đếm request chứng minh status/profile polling dừng sau mất lease; kiểm tra
+  keyboard Enter và không tràn ngang trên mobile. Không có pageerror.
+- Fixture chỉ dùng user/device/engine metadata và Chromium profile tạm, không
+  mở profile Chrome đã đăng nhập hoặc website side effect thật. Không deploy,
+  sửa env thật hoặc restart installation người dùng.
+
+WFI-07 hoàn tất source/fixture; VPS/WAN, desktop tương tác và website đăng nhập
+thật vẫn cần WFI-08. Hướng dẫn vận hành UI/API bổ sung tại
+[WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md).

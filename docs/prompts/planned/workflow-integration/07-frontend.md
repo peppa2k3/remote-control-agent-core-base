@@ -1,5 +1,10 @@
 # WFI-07 — Giao diện workflow thống nhất
 
+Trạng thái: **Completed — source và fixture local, 2026-11-18**.
+Phạm vi: [WORKFLOW_FRONTEND](../../../WORKFLOW_FRONTEND.md).
+Bằng chứng và giới hạn: [VALIDATION](../../../VALIDATION.md).
+Không thay thế nghiệm thu VPS/desktop/website thật của WFI-08.
+
 Đọc README chung; phụ thuộc WFI-06. Mở rộng WorkflowPanel hiện tại, không tạo panel
 thứ hai hoặc nhúng web control-server có auth riêng.
 

@@ -7,6 +7,11 @@ function fixture(t){const db=new Store(':memory:');t.after(()=>db.db.close());co
 test('migration upgrades existing core, transaction request key is canonical and rollback refuses unresolved data',async t=>{
   const f=fixture(t);migrateWorkflowJobs(f.db);const values=await Promise.all(Array.from({length:10},()=>Promise.resolve().then(()=>f.jobs.accept(f.input))));assert.equal(values.filter(v=>!v.duplicate).length,1);assert.equal(new Set(values.map(v=>v.job.jobId)).size,1);
   assert(f.jobs.accept({...f.input,params:{variables:{b:2,a:1},profile:'Default',scenario:'wait'}}).duplicate);
+  assert.equal(f.jobs.lookup(f.input.deviceId,f.input.userId,f.input.requestId).job.jobId,values[0].job.jobId);
+  f.db.run("INSERT INTO members(deviceId,userId,role) VALUES(?,?,'viewer')",f.input.deviceId,f.other);
+  assert.equal(f.jobs.lookup(f.input.deviceId,f.other,f.input.requestId).job,null,'lookup cannot reveal another user request');
+  f.db.run('DELETE FROM members WHERE deviceId=? AND userId=?',f.input.deviceId,f.other);
+  assert.throws(()=>f.jobs.lookup(f.input.deviceId,f.other,f.input.requestId));
   assert.throws(()=>f.jobs.accept({...f.input,operation:'stop',params:{runId:randomUUID()}}),/IDEMPOTENCY_CONFLICT/);
   assert.throws(()=>migrateWorkflowJobs(f.db,{rollback:true}),/UNRESOLVED_JOBS/);
   f.jobs.cancel(values[0].job.jobId);migrateWorkflowJobs(f.db,{rollback:true});assert(f.db.one('SELECT * FROM users WHERE id=?',f.input.userId));migrateWorkflowJobs(f.db);assert(createWorkflowJobs(f.db,{recover:false}).accept(f.input).duplicate,'rollback must preserve retained idempotency keys');

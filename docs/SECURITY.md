@@ -1,5 +1,11 @@
 # Quy tắc bảo mật
 
+WFI-07: lookup requestId bắt buộc cookie + membership hiện tại và lọc requestedBy
+theo user đăng nhập; không cấp lại quyền execute. Browser chỉ lưu hash/requestId/
+jobId trong sessionStorage, không payload/credential; logout xóa metadata này.
+Schema biến là policy allowlist, private defaults không chuyển lên UI. Validation
+UI không thay validation/RBAC/lease engine/backend. Xem [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md).
+
 WFI-03 integrated mode có local allowlist/hash/schema, grant pin device/user/
 browser/session/instance, fence bền vững, expiry monotonic và watchdog. API v1 và
 Bearer trên API dashboard không bypass grant trong mode này. HTTP polling cũ

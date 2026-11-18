@@ -127,7 +127,7 @@ function createIntegratedApi({profileBridge,workflows,scenarios,profiles,scenari
     }
     if(req.method==='GET'&&route==='/scenarios')return json(200,{names:policy.catalog()});
     const describe=/^\/scenarios\/([a-z0-9][a-z0-9_-]{0,63})$/.exec(route);
-    if(req.method==='GET'&&describe){const s=policy.scenario(describe[1]);return json(200,{name:describe[1],steps:s.source.steps.length,variables:Object.fromEntries(s.rule.publicDefaults.filter(k=>Object.hasOwn(s.source.variables||{},k)).map(k=>{const v=s.source.variables[k];policy.prepare(describe[1],s.rule.profiles[0],{[k]:v});return [k,v];}))});}
+    if(req.method==='GET'&&describe){const s=policy.scenario(describe[1]);return json(200,{name:describe[1],steps:s.source.steps.length,variableSchema:Object.fromEntries(Object.entries(s.rule.variables).map(([key,rule])=>[key,Object.fromEntries(Object.entries(rule).filter(([field])=>field!=='enum'))])),profiles:s.rule.profiles,variables:Object.fromEntries(s.rule.publicDefaults.filter(k=>Object.hasOwn(s.source.variables||{},k)).map(k=>{const v=s.source.variables[k];policy.prepare(describe[1],s.rule.profiles[0],{[k]:v});return [k,v];}))});}
     if(req.method==='GET'&&route==='/runs')return json(200,{runs:Object.values(state.runs).filter(r=>visible(r,g)&&(!url.searchParams.get('profile')||r.profile===url.searchParams.get('profile'))).slice(-50).reverse().map(project)});
     if(req.method==='POST'&&route==='/runs')return json(202,startRun(await readBody(req),g,req.headers['idempotency-key']));
     const rm=/^\/runs\/([a-f0-9-]{36})(\/stop)?$/.exec(route);

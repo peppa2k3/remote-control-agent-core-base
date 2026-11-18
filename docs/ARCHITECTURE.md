@@ -1,5 +1,10 @@
 # Kiến trúc và luồng
 
+WFI-07 dùng cùng WorkflowPanel và cookie/socket core: lookup metadata theo user/
+device qua backend; catalog/mutations qua relay có browser lease. Không gọi engine
+loopback trực tiếp từ web. Scope UI hủy request/timer khi đổi quyền hoặc kết nối;
+durable receipt sống độc lập với UI. Xem [WORKFLOW_FRONTEND](WORKFLOW_FRONTEND.md).
+
 WFI-03 thêm backend workflow-grants relay, runner workflow-v2 adapter và engine
 integrated API/policy. Browser dùng event cũ được route v2 theo capability hoặc
 workflow:v2:request; grant được backend cấp từ auth/lease, không từ params FE.
