@@ -132,3 +132,30 @@ nonce/client không chuyển lên VPS. Heartbeat hết 10 giây mất readiness,
 restart không nhận lại step ambiguous. Port mặc định 34719, Options hỗ trợ đổi
 port loopback 1024–65535 cùng engine. Web start và từng bước kiểm tra readiness;
 local-only không cần extension. Xem [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
+## WFI-06 — jobsVersion 1
+
+Engine 0.5.0 và adapter có durable local journal quảng bá jobsVersion=1 trong
+workflow:v2:capabilities/health snapshot. Khi capability này có mặt, run/stop/
+openProfile dùng requestId bắt buộc; cùng identity/device/key/body trả receipt
+cũ, khác body/operation 409, không rebind sang grant mới. Response thêm jobId.
+Frontend giữ key khi retry lỗi và có mục lịch sử metadata VPS.
+
+API mới đã implement:
+
+- GET `/api/devices/:id/workflow/jobs?cursor=&limit=20` và `/jobs/:jobId`:
+  cookie + membership hiện tại, metadata sanitized, không cần lease để đọc;
+  pagination tối đa 50, cursor phải thuộc device.
+- Socket browser `workflow:v2:cancel`: `{deviceId,sessionId,jobId}`; cần active
+  browser lease và owner/operator. Hủy queued/stop đúng job, không chạy lại.
+- Socket agent `workflow:v2:report`: `{protocolVersion:2,agentInstanceId,
+  engineInstanceId,observedAt,report}`. Report pin job/grant/fence/origin instance,
+  seq monotonic, state/runId/progress/quiescent/reasonCode. Tối đa 16KB và 40/s.
+  ACK `{ok,jobId,seq}` chỉ sau commit; report mâu thuẫn không ghi lùi terminal.
+- Socket VPS `workflow:v2:cancel-job`: immutable command identity/fingerprint;
+  adapter gửi cancel tombstone, không cần tạo grant mới cho execution.
+- Engine Bearer loopback: POST `/api/v2/jobs` để accept/execute dưới grant;
+  GET `/jobs?cursor=` / `/jobs/:id` readonly reconcile; POST `/jobs/:id/cancel`
+  ghi tombstone/stop và `/jobs/:id/ack` ACK seq. Không nhận browser Origin.
+
+Body/response/schema, states, 30/90-day retention, migration và rollback:
+[WORKFLOW_JOBS](WORKFLOW_JOBS.md). Không có endpoint reset unknown hoặc auto replay.

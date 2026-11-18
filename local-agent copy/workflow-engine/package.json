@@ -1,0 +1,27 @@
+{
+  "name": "@rca/workflow-engine",
+  "version": "0.4.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "start:daemon": "node index.js --daemon",
+    "check:mongo": "node scripts/check-mongodb.js",
+    "setup:video": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-video.ps1",
+    "install:startup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-remote-startup.ps1",
+    "migrate:legacy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/migrate-legacy.ps1",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "test:browser": "node --test --test-concurrency=1 test/browser/*.test.js",
+    "package:standalone": "node scripts/package-standalone.js"
+  },
+  "dependencies": {
+    "mongodb": "7.7.0"
+  },
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "devDependencies": {
+    "playwright": "1.64.0"
+  }
+}

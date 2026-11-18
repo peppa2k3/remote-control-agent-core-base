@@ -30,7 +30,7 @@ test('profile bridge fixed argv/env, local allowOpen, no duplicate launch, deadl
 test('open revalidates grant after spawn and never kills the launched browser',async()=>{
   let checks=0;const child=new EventEmitter();child.unref=()=>{};child.kill=()=>assert.fail('Chrome must not be killed');
   const bridge=createProfileBridge({interactive:()=>{},profiles:()=>[{directory:'Default'}],allowed:()=>[{id:'Default',allowOpen:true}],workflows:{profileBusy:()=>false,browserBusy:()=>false},chromePath:path.resolve('chrome.exe'),userDataDir:path.resolve('user data'),port:34719,launch:()=>{queueMicrotask(()=>child.emit('spawn'));return child;}});
-  await assert.rejects(bridge.open('Default',()=>{if(++checks===2)throw Object.assign(Error('expired'),{code:'LEASE_REQUIRED'});}),{code:'LEASE_REQUIRED'});
+  await assert.rejects(bridge.open('Default',()=>{if(++checks===3)throw Object.assign(Error('expired'),{code:'LEASE_REQUIRED'});}),{code:'LEASE_REQUIRED'});
 });
 
 test('a matching cleanup receipt remains admissible after policy removal without renewing readiness',()=>{

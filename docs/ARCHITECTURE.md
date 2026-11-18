@@ -76,3 +76,13 @@ port cấu hình trong Options và debugger ownership proof. Integrated browser
 workflow giữ slot foreground đến quiescence; picker/native chooser cũng giữ
 quyền riêng, chặn tranh foreground giữa profile. Không kill Chrome khi revoke.
 Xem [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
+## WFI-06 — durable intent và receipts
+
+Backend SQLite intent/key → adapter SQLite journal → engine schema-2 correlation
+jobId/runId trước side effect. Params chỉ đi qua RAM/HTTP local; VPS persist
+fingerprint và metadata. Engine seq + adapter durable ACK sync về backend qua
+authenticated agent socket, current transport instance và immutable origin job.
+Restart chỉ reconcile/stop: không phục hồi lease, body hoặc queue cũ để execute.
+Unknown jobs tham gia quiescence barrier. History API đọc theo membership mới
+nhất kể cả runner offline. Single backend process vẫn là ràng buộc bắt buộc.
+Xem [WORKFLOW_JOBS](WORKFLOW_JOBS.md).

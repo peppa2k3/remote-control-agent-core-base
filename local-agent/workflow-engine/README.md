@@ -1,4 +1,4 @@
-# Workflow Engine 0.4.0 đi kèm core
+# Workflow Engine 0.5.0 đi kèm core
 
 WFI-03 bổ sung mode integrated với policy local/grant v2. Xem
 [cấu hình integrated](docs/INTEGRATED_MODE.md). Env example chọn integrated;
@@ -98,3 +98,5 @@ coi fixture ACK là Chrome extension thật. Không tự chạy migration/startu
 WFI-04 adds authenticated lifecycleVersion=1 health and owned IPC shutdown. Core attach/managed instructions: `docs/WORKFLOW_SUPERVISOR.md` in the core repository. The standalone daemon still starts using `index.js --daemon`.
 
 WFI-05: integrated openProfile requires allowOpen + grant. Extension 4.4.0 binding/readiness is required for web steps. Core guide: `docs/WORKFLOW_CHROME.md`.
+
+WFI-06 adds jobsVersion=1 and schema-2 durable intent/correlation/receipts. Upgrade core backend and Local Runner together; no replay or automatic downgrade. Core guide: `docs/WORKFLOW_JOBS.md`. Extension remains 4.4.0.

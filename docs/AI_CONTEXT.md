@@ -29,4 +29,13 @@ Engine 0.4.0/extension 4.4.0 có openProfile v2 theo grant/allowOpen, Options po
 và versioned worker/client binding với heartbeat, foreground lock đến quiescence.
 Web cần readiness thật, local-only vẫn riêng; revoke không kill Chrome. Đã có
 unpacked MV3 E2E trong Chromium/profile tạm. Xem [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
-Durable jobs/report/retention và nghiệm thu target production thuộc WFI-06–08.
+Nghiệm thu target production tiếp tục thuộc WFI-08.
+
+## WFI-06 — 2026-11-18
+
+Engine 0.5.0 bổ sung durable jobs/correlation trước side effect; adapter journal
+SQLite và report seq/ACK về VPS. Retry giữ requestId/fingerprint/grant gốc;
+restart chỉ reconcile, không phục hồi lease hoặc replay. Unknown giữ barrier.
+History metadata kiểm tra membership hiện tại, retention metadata 30 ngày/key
+90 ngày. Xem [WORKFLOW_JOBS](WORKFLOW_JOBS.md) và [VALIDATION](VALIDATION.md).
+WFI-07–08 còn planned; chưa nghiệm thu VPS/WAN hoặc desktop/website thật.

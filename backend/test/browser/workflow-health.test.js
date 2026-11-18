@@ -5,16 +5,19 @@ import {randomUUID} from 'node:crypto';
 import {createServer} from 'node:http';
 import {chromium} from 'playwright';
 import {io} from 'socket.io-client';
+import {createWorkflowJobs} from '../../src/workflow-jobs.js';
 import {createApp} from '../../src/server.js';
 
 test('built dashboard displays engine health separately from runner and requires lease for controls',async t=>{
   const probe=createServer();await new Promise(r=>probe.listen(0,'127.0.0.1',r));const port=probe.address().port;await new Promise(r=>probe.close(r));
   const base=`http://127.0.0.1:${port}`,core=createApp({dbPath:':memory:',origin:base});await new Promise(r=>core.http.listen(port,'127.0.0.1',r));
   const password='browser-health-fixture-password',owner=core.db.addUser('browser-health@test.local',password,'Fixture');const device=core.db.enroll(core.db.pair(owner,'Browser health fixture'));
+  const ledger=createWorkflowJobs(core.db,{recover:false});const fixtureJob=ledger.accept({deviceId:device.deviceId,userId:owner,browserId:'history-fixture',sessionId:randomUUID(),requestId:'browser-history',operation:'run',params:{profile:'Default',scenario:'private-fixture',variables:{secret:'HISTORY_MUST_NOT_CONTAIN'}},deadline:Date.now()+10000}).job;ledger.cancel(fixtureJob.jobId);
   const agent=io(base,{autoConnect:false,transports:['websocket'],auth:{kind:'agent',credential:device.credential}});const browser=await chromium.launch({channel:'chrome',headless:true});
   t.after(async()=>{agent.disconnect();await browser.close();await core.close();});
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base);await page.locator('input[name=email]').fill('browser-health@test.local');await page.locator('input[name=password]').fill(password);await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+  await page.locator('summary').filter({hasText:'L\u1ecbch s\u1eed jobs tr\u00ean VPS'}).click();await page.getByText(fixtureJob.jobId,{exact:false}).waitFor();assert(!(await page.locator('body').innerText()).includes('HISTORY_MUST_NOT_CONTAIN'));
   const connected=once(agent,'connect');agent.connect();await connected;
   const cap={protocolVersion:2,agentInstanceId:randomUUID(),engineInstanceId:randomUUID(),engineVersion:'0.4.0',mode:'integrated',operations:['profiles','scenarios','describe','runs','status','run','stop','openProfile'],policyRevision:1,supervisor:{mode:'managed',owned:true,restarts:0}};
   const publish=(state,reasonCode)=>agent.timeout(3000).emitWithAck('workflow:v2:capabilities',{...cap,health:{state,reasonCode,checkedAt:Date.now(),path:'never-display-path',token:'never-display-token'}});

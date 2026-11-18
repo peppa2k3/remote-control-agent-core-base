@@ -67,7 +67,7 @@ test('real Local Runner connects and auto-approves only a server-issued handshak
  const statusReported=new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Runner did not report device status')),15000);browser.on('devices:snapshot',rows=>{const device=rows.find(v=>v.id===d.deviceId);if(device?.status){clearTimeout(timeout);resolve(device.status)}})});
  // Copy only public runner source so its settings loader cannot read checkout .env files.
  mkdirSync(join(dir,'src'));writeFileSync(join(dir,'package.json'),JSON.stringify({type:'module'}));
- for(const name of ['index.js','status.js','terminal.js','workflow.js','workflow-v2.js','workflow-supervisor.js'])copyFileSync(fileURLToPath(new URL('../../local-agent/src/'+name,import.meta.url)),join(dir,'src',name));
+ for(const name of ['index.js','status.js','terminal.js','workflow.js','workflow-v2.js','workflow-supervisor.js','workflow-journal.js'])copyFileSync(fileURLToPath(new URL('../../local-agent/src/'+name,import.meta.url)),join(dir,'src',name));
  symlinkSync(fileURLToPath(new URL('../../node_modules',import.meta.url)),join(dir,'node_modules'),process.platform==='win32'?'junction':'dir');
  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>/^(SystemRoot|WINDIR|PATH|PATHEXT|COMSPEC|TEMP|TMP|HOME|USERPROFILE|APPDATA|LOCALAPPDATA)$/i.test(key)));
  child=spawn(process.execPath,[join(dir,'src/index.js')],{cwd:dir,env:{...env,SERVER_URL:url,CREDENTIALS_PATH:file,AUTO_APPROVE_SESSIONS:'true',STATUS_INTERVAL_SECONDS:'5',WORKFLOW_AGENT_PROTOCOL:'1',WORKFLOW_AGENT_ENABLED:'false',WORKFLOW_AGENT_ENV_FILE:join(dir,'absent-workflow.env')},stdio:['ignore','ignore','pipe']});

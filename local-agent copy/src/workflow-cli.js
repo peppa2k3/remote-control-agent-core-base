@@ -17,7 +17,7 @@ Reads local-agent/.env and WORKFLOW_AGENT_ENV_FILE (default ../.env).
 Requires the workflow engine to be running. Output: JSON.
 Exit: 0 success/accepted, 1 error/failed, 2 cancelled, 124 wait timeout.`;
 
-export async function runWorkflowCli(args = process.argv.slice(2), {client = createWorkflowClient(), output = data => console.log(JSON.stringify(data))} = {}) {
+export async function runWorkflowCli(args = process.argv.slice(2), {client = createWorkflowClient(), output = data => console.log(JSON.stringify(data)), diagnostic = data => console.error(JSON.stringify(data))} = {}) {
   const {values, positionals} = parseArgs({args, allowPositionals: true, options: {
     help: {type: 'boolean'}, scenario: {type: 'string'}, profile: {type: 'string'},
     'run-id': {type: 'string'}, 'request-id': {type: 'string'}, var: {type: 'string', multiple: true},
@@ -49,9 +49,12 @@ export async function runWorkflowCli(args = process.argv.slice(2), {client = cre
     Object.defineProperty(variables, item.slice(0, index), {value: item.slice(index + 1), enumerable: true, configurable: true, writable: true});
   }
   const requestId = values['request-id'] || randomUUID();
+  // A POST can reach the engine even when its response is lost. Expose the key
+  // before sending so the same request can be retried without starting twice.
+  diagnostic({requestId});
   let run = await client.request('run', {scenario: values.scenario, profile: values.profile, variables, timeoutMs, ...(values.upload ? {uploadPath: values.upload} : {})}, {requestId});
   if (!values.wait) { output(run); return; }
-  console.error(JSON.stringify({runId: run.runId, requestId}));
+  diagnostic({runId: run.runId, requestId});
   const deadline = Date.now() + waitMs;
   while (run.state === 'running') {
     if (Date.now() >= deadline) {

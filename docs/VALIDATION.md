@@ -177,3 +177,34 @@ chỉ ở fixture, không đi vào production spawn. Hướng dẫn tại
 [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
 
 WFI-05 readiness regression: bind alone does not mark ready; a nonce-echo heartbeat is required. Matching cleanup receipts remain admissible after local policy removes a profile, without refreshing readiness or admitting new work. Wrong nonce/client remains rejected.
+
+## WFI-06 — 2026-11-18, Windows 10.0.19045 / Node 24.16.0
+
+- `npm test`: backend 13, Local Runner 20, engine 33; kết quả toàn bộ ở lượt chạy lại: 66/66.
+- `npm run build`: exit 0. `node --test backend/test/browser/workflow-health.test.js`:
+  1/1; dashboard đã build hiển thị metadata history, quyền và trạng thái lease.
+- `npm run test:browser -w @rca/workflow-engine`: 4/4, bao gồm extension MV3
+  unpacked thật trong Chromium/profile tạm. `node --check`: 20 file JS thay đổi
+  thuộc backend/local-agent; `git diff --check` cho phạm vi WFI-06 không có lỗi.
+- Pipeline thật core → adapter → engine: mất HTTP response sau khi nhận job,
+  mất report ACK sau commit, retry cùng key không thêm execution; body khác 409.
+  Cancel trước delivery ghi tombstone; restart adapter/backend không replay.
+- Kill process backend sau commit dispatched: restart thành unknown, lease bị
+  xóa, không dispatch lại. Kill/restart engine giữ correlation jobId/runId,
+  migration schema 1 → 2 có backup; không chạy thêm run cho cùng key.
+- SQLite kiểm tra cạnh tranh requestId/canonical body, report duplicate/out-of-order,
+  terminal không lùi, retention 30/90 ngày, unknown không purge; rollback từ chối
+  unresolved và giữ key tombstones. History bị chặn ngay khi membership bị thu hồi;
+  projection không chứa variables/token/path/raw errors.
+
+Lượt full test đầu có một timeout ở fixture đọc trạng thái Windows (không phải
+jobs/sync); test đó đạt khi chạy riêng và trong lượt full chạy lại. Không thay
+timeout hoặc bỏ test để vượt qua lỗi. Lệnh browser backend không có npm script;
+đã chạy trực tiếp file test như trên.
+
+Chưa nghiệm thu VPS/WAN/power loss thực, desktop bị khóa/Session 0, profile hoặc
+website đăng nhập thật. Không có cam kết exactly-once cho side effect bên ngoài;
+unknown giữ barrier và cần kiểm tra local, không có force-clear tự động. Không
+deploy, restart installation người dùng hoặc thay env/credentials/profile thật.
+WFI-07–08 vẫn planned; hướng dẫn schema/protocol/retention/rollback tại
+[WORKFLOW_JOBS](WORKFLOW_JOBS.md).

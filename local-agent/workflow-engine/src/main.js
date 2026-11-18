@@ -98,7 +98,7 @@ const server = http.createServer(async (request, response) => {
   try { url = new URL(request.url, `http://127.0.0.1:${port}`); }
   catch { return json(400, { error: 'Invalid request URL' }); }
   const route = url.pathname;
-  if(closing && !['/api/v2/health','/result','/state'].includes(route) && !(route.startsWith('/api/v2/grants/') && (request.method==='GET'||route.endsWith('/revoke'))))return json(503,{error:'STOPPING'});
+  if(closing && !['/api/v2/health','/result','/state'].includes(route) && !(route.startsWith('/api/v2/jobs')&&(request.method==='GET'||route.endsWith('/cancel')||route.endsWith('/ack'))) && !(route.startsWith('/api/v2/grants/') && (request.method==='GET'||route.endsWith('/revoke'))))return json(503,{error:'STOPPING'});
   if (request.headers.host !== `127.0.0.1:${port}` && request.headers.host !== `localhost:${port}`) return json(403, { error: 'Host not allowed' });
   const origin = request.headers.origin;
   if(route.startsWith('/extension/')){
@@ -241,7 +241,8 @@ const server = http.createServer(async (request, response) => {
 });
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;
-const expiry = setInterval(() => { integrated?.tick(); workflows.expire(); }, 250);
+let lastJobPrune=0;
+const expiry = setInterval(() => { integrated?.tick(); workflows.expire();if(Date.now()-lastJobPrune>3600000){integrated?.prune();lastJobPrune=Date.now();} }, 250);
 expiry.unref();
 const performanceTimer = setInterval(() => {
   const now = process.hrtime.bigint(), cpu = process.cpuUsage();

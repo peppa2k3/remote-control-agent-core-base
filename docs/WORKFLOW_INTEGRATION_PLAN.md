@@ -12,7 +12,8 @@ WFI-01 đã chốt thiết kế ngày 2026-11-11: [ADR-001](adr/001-workflow-int
 được cụ thể hóa bởi ADR; WFI-02 completed package/source.
 WFI-03 đã implement policy/grant subset. WFI-04 thêm supervisor/health,
 WFI-05 thêm Chrome/profile readiness với engine 0.4.0, extension 4.4.0;
-WFI-06–08 còn planned. Xem [Chrome/extension](WORKFLOW_CHROME.md),
+WFI-06 đã triển khai jobs/journal/report với engine 0.5.0; WFI-07–08 còn planned.
+Xem [jobs/sync](WORKFLOW_JOBS.md), [Chrome/extension](WORKFLOW_CHROME.md),
 [supervisor thực tế](WORKFLOW_SUPERVISOR.md), [cấu hình grant](WORKFLOW_GRANTS.md) và
 [hướng dẫn engine](../local-agent/workflow-engine/README.md). Các bảng khảo sát
 bên dưới ghi baseline trước triển khai, không là trạng thái API hiện tại.

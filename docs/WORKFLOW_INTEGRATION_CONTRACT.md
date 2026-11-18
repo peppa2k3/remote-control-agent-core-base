@@ -3,7 +3,11 @@
 Trạng thái: **contract tổng thể, WFI-03 đã implement subset policy/grant**.
 Xem [phạm vi thực và cấu hình](WORKFLOW_GRANTS.md). Đã có health/grants/catalog/
 run/status/stop và Socket.IO grant/revoke/dispatch; panel cũ route v2 theo runner.
-GET jobs, report/reconcile protocol và queue/retention 30/90 ngày còn planned.
+WFI-06 đã triển khai GET jobs, durable intent/receipts và retention 30/90 ngày.
+Wire thực tế: [WORKFLOW_JOBS](WORKFLOW_JOBS.md). Reconcile dùng engine GET jobs
+phân trang và workflow:v2:report + ACK, không có event reconcile riêng. Cursor
+là job UUID; progress chỉ index/total, action=null. Không persist payload để replay
+queue sau crash; grant gốc bất biến. Engine hiện tại 0.5.0, schema 2.
 WFI-05 đã thêm openProfile và readiness: [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
 WFI-04 đã thêm supervisor và health, xem
 [phạm vi triển khai](WORKFLOW_SUPERVISOR.md). Các yêu cầu ở những phần planned

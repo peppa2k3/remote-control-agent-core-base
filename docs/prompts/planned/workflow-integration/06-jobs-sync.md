@@ -1,5 +1,12 @@
 # WFI-06 — Jobs bền vững và đồng bộ local–VPS
 
+Trạng thái: **Completed — triển khai và kiểm thử local ngày 2026-11-18**.
+Giữ đường dẫn prompt để tương thích liên kết. Phạm vi, protocol, schema,
+retention và rollback: [WORKFLOW_JOBS](../../../WORKFLOW_JOBS.md).
+Bằng chứng và giới hạn nghiệm thu: [VALIDATION](../../../VALIDATION.md).
+WFI-08 vẫn cần nghiệm thu VPS/WAN, desktop và website đăng nhập thật; kết quả
+local không khẳng định exactly-once cho side effect trên website bên ngoài.
+
 Đọc README chung; phụ thuộc WFI-05. Port ý tưởng từ control-server commands/store
 và remote-client/executor, không bê auth/ownership hoặc `/device/exchange` vào core.
 

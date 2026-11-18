@@ -42,7 +42,7 @@ function createProfileBridge({profiles,workflows,chromePath,userDataDir,port,all
     check();const s=status(profile);if(s.state==='ready'||s.state==='starting')return {profile,...s};
     if(workflows.browserBusy()||guiBusy())fail('PROFILE_BUSY',409);
     if(!path.isAbsolute(chromePath)||!path.isAbsolute(userDataDir))fail('CHROME_CONFIG',503);
-    interactive();
+    interactive();check();
     // No extension install flags, startup URL, path or environment comes from HTTP.
     const env={};for(const k of ['SystemRoot','WINDIR','PATH','Path','TEMP','TMP','HOME','USERPROFILE','LOCALAPPDATA','APPDATA'])if(process.env[k])env[k]=process.env[k];
     const o={deadline:now()+deadlineMs};opens.set(profile,o);

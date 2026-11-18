@@ -6,7 +6,7 @@ trong `local-agent/chrome-reels-extension/`. Sau `npm ci`, chạy engine riêng 
 Bản WFI-03 có mode integrated với local policy/grant v2 và extension 4.3.0;
 xem [cấu hình grant](docs/WORKFLOW_GRANTS.md). Standalone/v1 giữ tương thích cũ;
 WFI-04 bổ sung [supervisor attach/managed và health](docs/WORKFLOW_SUPERVISOR.md).
-Durable jobs toàn tuyến chưa triển khai. Attach là mặc định; chỉ chuyển managed
+WFI-06 bổ sung [durable jobs và đồng bộ metadata](docs/WORKFLOW_JOBS.md) với engine 0.5.0. Attach là mặc định; chỉ chuyển managed
 sau khi dừng engine cũ và bảo vệ ACL file env tại máy local.
 
 WFI-05 bổ sung [mở Chrome profile và readiness extension](docs/WORKFLOW_CHROME.md):

@@ -131,3 +131,11 @@ worker thực. Trong Options chọn port → tải profiles → chọn đúng pr
 web cần lease trước khi mở profile. Local-only workflow không cần extension.
 Hướng dẫn cài/enable, port, missing-extension/busy và Windows interactive tại
 [WORKFLOW_CHROME](WORKFLOW_CHROME.md). Không dùng API v1 để bypass integrated.
+## WFI-06 — đồng bộ jobs
+
+Engine 0.5.0 + adapter journal jobsVersion=1 có durable intent/correlation/seq/ACK,
+idempotency theo user/device và lịch sử metadata VPS qua membership hiện tại.
+Mục **Lịch sử jobs trên VPS** vẫn đọc được khi runner offline; không là toàn bộ
+history local/legacy. Không giữ queue qua lease hết hạn hoặc replay unknown.
+Nâng nguồn coordinated, migration schema 2 và retention 30/90 ngày tại
+[WORKFLOW_JOBS](WORKFLOW_JOBS.md). Extension vẫn 4.4.0; không đổi installation tự động.

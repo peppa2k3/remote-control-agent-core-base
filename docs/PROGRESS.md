@@ -130,4 +130,15 @@ openUrl/type/click qua debugger → ACK, stop active action → settled, worker
 stop/reconnect và disable/enable. Full tests/build/Chrome UI được ghi tại
 [VALIDATION](VALIDATION.md). Hướng dẫn [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
 Không thay env/profile thật, cài task, restart installation hoặc deploy VPS.
-WFI-06–08 còn planned; chưa nghiệm thu Session 0/desktop login/website thật trên target.
+WFI-06–08 còn planned tại thời điểm WFI-05; chưa nghiệm thu Session 0/desktop login/website thật trên target.
+
+## 2026-11-18 — WFI-06 jobs/sync
+
+Đã triển khai intent/receipts SQLite VPS, journal adapter và correlation engine
+0.5.0 trước side effect. Retry giữ requestId, fingerprint và grant gốc; restart
+chỉ reconcile, không phục hồi lease hoặc replay. Cancel ưu tiên có tombstone;
+unknown giữ quiescence barrier. History metadata đọc theo membership hiện tại,
+retention metadata 30 ngày/key 90 ngày. Xem [WORKFLOW_JOBS](WORKFLOW_JOBS.md)
+và [VALIDATION](VALIDATION.md). WFI-07–08 còn planned; chưa nghiệm thu VPS/WAN,
+desktop/website đăng nhập thật. Không thay env/credentials/profile hoặc installation
+người dùng; thư mục local-agent copy không thuộc thay đổi WFI-06.

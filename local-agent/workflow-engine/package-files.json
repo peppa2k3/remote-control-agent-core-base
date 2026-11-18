@@ -49,6 +49,7 @@
   "src/storage/activity-store.js",
   "src/storage/casefold.js",
   "src/storage/download-cache.js",
+  "src/workflow/jobs.js",
   "src/workflow/media-guard.js",
   "src/workflow/remote-policy.js",
   "src/workflow/scenario-store.js",

@@ -1,0 +1,5 @@
+{
+  "name": "Local wait fixture",
+  "variables": { "delay": 100 },
+  "steps": [{ "action": "wait", "ms": "{{delay}}" }]
+}

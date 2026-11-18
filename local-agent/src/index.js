@@ -5,6 +5,7 @@ import {createInterface} from 'node:readline/promises';
 import {createStatusSampler,parseStatusIntervalSeconds} from './status.js';
 import {createTerminalManager} from './terminal.js';
 import {createWorkflowClient,bindWorkflowSocket,readWorkflowSettings} from './workflow.js';
+import {createWorkflowJournal} from './workflow-journal.js';
 import {createWorkflowSupervisor} from './workflow-supervisor.js';
 import {createWorkflowV2Client,bindWorkflowV2Socket} from './workflow-v2.js';
 const url=process.env.SERVER_URL||'http://localhost:4000';
@@ -27,7 +28,8 @@ const workflowClient=createWorkflowClient();
 const workflowSettings=readWorkflowSettings();
 const workflowProtocol=workflowSettings.protocol;
 const workflowSupervisor=workflowProtocol===2?createWorkflowSupervisor({settings:workflowSettings}):null;
-const workflowSocket=workflowProtocol===2?bindWorkflowV2Socket({socket,getSession:()=>active,supervisor:workflowSupervisor,client:createWorkflowV2Client({settings:()=>workflowSettings})}):bindWorkflowSocket({socket,getSession:()=>active,client:workflowClient});
+const workflowJournal=workflowProtocol===2?createWorkflowJournal(resolve(dirname(file),'workflow-journal.sqlite')):null;
+const workflowSocket=workflowProtocol===2?bindWorkflowV2Socket({socket,getSession:()=>active,supervisor:workflowSupervisor,journal:workflowJournal,deviceId:credential.deviceId,client:createWorkflowV2Client({settings:()=>workflowSettings})}):bindWorkflowSocket({socket,getSession:()=>active,client:workflowClient});
 const statusSampler=createStatusSampler({maxSampleGapMs:statusIntervalSeconds*2000});
 const terminalManager=createTerminalManager({maxSeconds:terminalMaxSeconds,idleSeconds:terminalIdleSeconds,
  onOpened:payload=>socket.emit('terminal:opened',payload),

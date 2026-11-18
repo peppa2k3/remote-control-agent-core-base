@@ -68,3 +68,14 @@ HTTP/HTTPS/debugger permissions giữ nguyên và được giải thích trong h
 Foreground serialization không bảo đảm độc quyền desktop trước OS/terminal/local
 admin/extension khác. Session 0 bị chặn khi openProfile; các session khác vẫn cần
 desktop tương tác đúng user. Xem [WORKFLOW_CHROME](WORKFLOW_CHROME.md).
+## WFI-06 — durable jobs
+
+Unique device/user/requestId + canonical command fingerprint chống key reuse và
+rebind sang session/grant khác. Authority kiểm tra trước dispatch và sau response;
+reports không tạo execution hoặc lease. Backend chỉ nhận metadata allowlist có
+instance/fence/seq/size/rate cap, không variables/path/raw errors. ACK sau commit;
+terminal conflict không được ghi lùi. Cancel trước delivery là tombstone bền vững.
+Không purge unknown/nonquiescent/unacked, không tự bỏ barrier hoặc replay sau
+restart. Journal cạnh credential và engine runtime cần thư mục private ACL;
+không lưu token/credential/payload trong ledger VPS. History dùng current
+membership, không trả requestedBy/browser/fingerprint. Xem [WORKFLOW_JOBS](WORKFLOW_JOBS.md).
