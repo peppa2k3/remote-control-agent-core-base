@@ -290,3 +290,25 @@ runtime, máy sạch, full backup/restore và rollback schema/package trên targ
 thực hiện thành công trên máy sạch. Không tự deploy/restart/cài task hoặc dùng
 profile đã đăng nhập. Không có cam kết exactly-once cho website bên ngoài.
 Quy trình và mẫu evidence operator: [WORKFLOW_OPERATIONS](WORKFLOW_OPERATIONS.md).
+
+## CI validate/verify — 2026-11-18
+
+Đọc log GitHub của [run 44232465473 / job 134560574771](https://github.com/peppa2k3/remote-control-agent-core-base/actions/runs/44232465473/job/134560574771),
+commit e7d936982e5908acc2efab718482265f8cd87e22, Ubuntu 26.04.1 / Node 24.22.2.
+Backend đạt 13/13; Local Runner lỗi duy nhất ở
+`managed crash with an accepted run preserves unknown outcome and never replays it`
+với Supervisor fixture deadline, dòng 96. Engine suite/build chưa được CI chạy.
+
+Nguyên nhân: test dùng child.kill() mặc định SIGTERM; POSIX gọi graceful shutdown,
+khác với crash test muốn mô phỏng. Windows force-terminate đã che khác biệt này.
+Crash injection nay dùng SIGKILL, kiểm tra kill trả true; journal unknown, grant
+revoked, không replay và shutdown thiếu proof vẫn giữ nguyên assertions.
+Không đổi workflow hoặc nới timeout/skip/production shutdown.
+
+Test riêng sau sửa: `node --test --test-name-pattern="managed crash with an accepted run"
+local-agent/test/workflow-supervisor.test.js`: exit 0, 1/1 trên Windows/Node 24.16.0.
+`npm run build`: exit 0. Full `npm test`: exit 0, **66/66** (backend 13,
+Local Runner 20, engine 33) trên Windows/Node 24.16.0. `git diff --check`
+và syntax check file test đã sửa: exit 0.
+Chưa rerun Ubuntu/GitHub Actions với bản sửa; không push/dispatch/rerun production
+workflow vì có thể tiếp tục publish/deploy sau khi validate xanh.

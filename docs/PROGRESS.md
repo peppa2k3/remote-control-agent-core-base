@@ -165,3 +165,12 @@ Runbook cài/attach/managed/startup/upgrade/backup/restore/rollback và gate pip
 **WFI-08 giữ planned**: Docker daemon không hoạt động; chưa nghiệm thu VPS/WAN,
 Windows interactive/launcher/startup/máy sạch hoặc restore thật. Không deploy,
 restart installation, cài task hoặc sửa env/credential/profile người dùng.
+
+## 2026-11-18 — sửa CI validate/verify
+
+Run 44232465473, job 134560574771 lỗi tại supervisor crash fixture trên Ubuntu
+26.04.1 / Node 24.22.2: child.kill() gửi SIGTERM, engine chạy graceful shutdown
+nên test không nhận UNKNOWN_OUTCOME. Đổi riêng crash injection sang SIGKILL và
+assert signal gửi thành công; giữ nguyên journal/revoke/no-replay assertions.
+Không đổi production shutdown, không skip test hoặc tăng timeout để che lỗi.
+Kết quả local và giới hạn rerun: [VALIDATION](VALIDATION.md).

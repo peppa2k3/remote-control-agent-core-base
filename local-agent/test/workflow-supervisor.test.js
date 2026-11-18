@@ -92,7 +92,9 @@ test('managed crash with an accepted run preserves unknown outcome and never rep
   const client=createWorkflowV2Client({settings:()=>f.settings}),instance=f.supervisor.getHealth().engineInstanceId,grantId=randomUUID();
   await client.http('/grants/'+grantId,'PUT',{protocolVersion:2,grantId,sessionId:randomUUID(),deviceId:randomUUID(),userId:randomUUID(),browserId:'fixture-browser',agentInstanceId:randomUUID(),engineInstanceId:instance,fence:1,seq:1,issuedAt:Date.now(),expiresAt:Date.now()+30000});
   const run=await client.http('/runs','POST',{scenario:'wait',profile:'Default',variables:{},jobId:randomUUID()},{'X-Workflow-Grant':grantId,'X-Workflow-Fence':'1','X-Workflow-Engine-Instance':instance,'Idempotency-Key':'crash-fixture'});
-  assert.equal(run.state,'running');f.children[0].kill();
+  // SIGTERM is a graceful drain on POSIX; a crash must not run shutdown hooks.
+  // Windows terminates for either signal, which previously hid this CI mismatch.
+  assert.equal(run.state,'running');assert.equal(f.children[0].kill('SIGKILL'),true);
   await until(()=>f.children.length===2&&f.supervisor.getHealth()?.engineInstanceId!==instance&&f.supervisor.snapshot().reasonCode==='UNKNOWN_OUTCOME');
   const records=JSON.parse(readFileSync(join(f.data,'workflow-grants.json')));assert.deepEqual(Object.keys(records.runs),[run.runId]);assert.equal(records.runs[run.runId].unknown,true);assert.equal(records.grants[grantId].state,'revoked');
   assert.equal(await f.supervisor.close(),false,'unknown external settlement is never reported as clean');
