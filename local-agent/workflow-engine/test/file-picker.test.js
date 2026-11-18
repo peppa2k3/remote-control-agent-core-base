@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
+const { test } = require('node:test');
 const { chooseFile } = require('../src/integrations/chrome/file-picker');
 
 function fakeLaunch(output, code = 0) {
@@ -21,8 +22,15 @@ function fakeLaunch(output, code = 0) {
   };
 }
 
-(async () => {
+test('file picker rejects unsupported platforms without launching a native dialog', {
+  skip: process.platform === 'win32',
+}, async () => {
+  let launched = false;
+  await assert.rejects(chooseFile('C:\\Uploads', () => { launched = true; }), /File picker requires Windows/);
+  assert.equal(launched, false);
+});
+
+test('Windows file picker returns selection or cancellation', {skip: process.platform !== 'win32'}, async () => {
   assert.equal(await chooseFile('C:\\Uploads', fakeLaunch('C:\\Uploads\\ảnh.jpg\n')), 'C:\\Uploads\\ảnh.jpg');
   assert.equal(await chooseFile('C:\\Uploads', fakeLaunch('')), null);
-  console.log('Windows file picker selection and cancellation: OK');
-})().catch(error => { console.error(error); process.exitCode = 1; });
+});

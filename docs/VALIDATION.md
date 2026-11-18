@@ -312,3 +312,23 @@ Local Runner 20, engine 33) trên Windows/Node 24.16.0. `git diff --check`
 và syntax check file test đã sửa: exit 0.
 Chưa rerun Ubuntu/GitHub Actions với bản sửa; không push/dispatch/rerun production
 workflow vì có thể tiếp tục publish/deploy sau khi validate xanh.
+
+### CI run sau đó
+
+Run [44235407289 / job 134570227137](https://github.com/peppa2k3/remote-control-agent-core-base/actions/runs/44235407289/job/134570227137),
+commit fb2b18d78c6f787671b605a572ec6e67c6f51888, tiếp tục dừng ở `npm test` với
+hai lỗi mới được nhìn rõ sau khi suite Local Runner qua:
+
+- `test/file-picker.test.js`: gọi API native Windows trên Ubuntu, lỗi
+  `File picker requires Windows`.
+- Engine jobs restart test gọi helper `engine.close()` (SIGTERM graceful), rồi
+  kỳ vọng job `unknown`; thực tế engine drain và ghi `cancelled`.
+
+Sửa test file picker phân nhánh theo OS: Linux kiểm tra từ chối mà không spawn;
+test chọn/hủy dialog chỉ chạy Windows. Test crash engine gửi SIGKILL và đợi
+process close trước khi restart. Không đổi production behavior.
+
+Sau sửa, `npm test` Windows/Node 24.16.0: exit 0, backend **13/13**, runner
+**20/20**, engine **33 pass + 1 skipped Windows-only unsupported-platform case**.
+Hai suite lỗi chạy riêng đều đạt; `git diff --check` đạt. Chưa chạy lại Ubuntu/
+GitHub Actions, vì deploy workflow có các job publish/deploy phụ thuộc validate.

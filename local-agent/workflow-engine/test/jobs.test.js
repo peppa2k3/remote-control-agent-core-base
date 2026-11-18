@@ -2,6 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const {once}=require('node:events');
 const {randomUUID,createHash}=require('node:crypto');
 const {createEngineJobs,fingerprint}=require('../src/workflow/jobs');
 const {temporary,removeTemporary,startEngine}=require('./helpers/engine');
@@ -28,7 +29,10 @@ test('real HTTP durable job ↔ run correlation survives a killed engine; duplic
   const first=await http('/jobs','POST',command,headers);assert.equal(first.status,200,JSON.stringify(first.data));assert(first.data.job.runId);assert.equal(first.data.data.runId,first.data.job.runId);
   const duplicate=await http('/jobs','POST',command,headers);assert.equal(duplicate.data.job.runId,first.data.job.runId);
   assert.equal((await http('/jobs','POST',{...command,params:{...command.params,variables:{delay:10}}},headers)).status,409);
-  const token=engine.token;await engine.close();engine=await startEngine({directory,token,configure});
+  const token=engine.token;
+  // This case models abrupt process loss, so do not run the engine's SIGTERM drain.
+  const stopped=once(engine.child,'close');assert.equal(engine.child.kill('SIGKILL'),true);await stopped;
+  engine=await startEngine({directory,token,configure});
   const lookup=await http('/jobs/'+command.jobId);assert.equal(lookup.status,200);assert.equal(lookup.data.job.runId,first.data.job.runId);assert.equal(lookup.data.job.state,'unknown');assert.equal(lookup.data.job.quiescent,false);
   assert.equal(Object.keys(JSON.parse(fs.readFileSync(path.join(engine.data,'workflow-grants.json'))).runs).length,1);assert(fs.existsSync(path.join(engine.data,'workflow-grants.json.v1-backup.json')));
 });

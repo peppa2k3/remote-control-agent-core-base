@@ -174,3 +174,10 @@ nên test không nhận UNKNOWN_OUTCOME. Đổi riêng crash injection sang SIGK
 assert signal gửi thành công; giữ nguyên journal/revoke/no-replay assertions.
 Không đổi production shutdown, không skip test hoặc tăng timeout để che lỗi.
 Kết quả local và giới hạn rerun: [VALIDATION](VALIDATION.md).
+
+Run 44235407289 lặp lại CI sau đó và phát hiện thêm hai giả định platform trong
+engine suite: file-picker Windows chạy trên Ubuntu; test restart mong `unknown`
+nhưng dùng graceful `engine.close()`. Fixture nay tách Windows dialog test và
+Linux unsupported-platform guard, crash test gửi SIGKILL. Full local `npm test`
+đạt 13 backend + 20 runner + 33 engine, thêm một Windows-only skip. Ubuntu rerun
+chưa chạy; chi tiết [VALIDATION](VALIDATION.md).
